@@ -34,10 +34,12 @@ def _reset_caches() -> Generator[None, None, None]:
 
 @pytest.fixture
 def test_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
-    """Settings configured for tests: in-memory DB, predictable CORS."""
+    """Settings configured for tests: in-memory DB, no startup sync, no scheduler."""
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
     monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:5173,http://example.test")
     monkeypatch.setenv("DEBUG", "false")
+    monkeypatch.setenv("SYNC_ON_STARTUP", "false")
+    monkeypatch.setenv("SCHEDULER_ENABLED", "false")
     return get_settings()
 
 

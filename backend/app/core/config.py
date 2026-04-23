@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # ─── Cost calculation ─────────────────────────────────
     default_km_cost: float = Field(default=0.13, ge=0.0)
 
+    # ─── Sync scheduler ───────────────────────────────────
+    sync_interval_seconds: int = Field(default=3600, ge=60)
+    sync_on_startup: bool = True
+    scheduler_enabled: bool = True
+
     # ─── Rate limiting ────────────────────────────────────
     geocoding_rate_limit: str = "10/minute"
     predictions_rate_limit: str = "30/minute"

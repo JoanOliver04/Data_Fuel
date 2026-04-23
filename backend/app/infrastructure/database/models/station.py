@@ -1,9 +1,10 @@
 """ORM model for gas stations."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Float, Index, String, func
+from sqlalchemy import DateTime, Float, Index, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.base import Base
@@ -31,6 +32,13 @@ class StationORM(Base):
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
 
     schedule: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+
+    # Denormalised current prices — updated on every MITECO sync for fast reads.
+    price_gasoline_95_e5: Mapped[Decimal | None] = mapped_column(Numeric(5, 3), nullable=True)
+    price_gasoline_95_e10: Mapped[Decimal | None] = mapped_column(Numeric(5, 3), nullable=True)
+    price_gasoline_98_e5: Mapped[Decimal | None] = mapped_column(Numeric(5, 3), nullable=True)
+    price_diesel_a: Mapped[Decimal | None] = mapped_column(Numeric(5, 3), nullable=True)
+    price_diesel_premium: Mapped[Decimal | None] = mapped_column(Numeric(5, 3), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
