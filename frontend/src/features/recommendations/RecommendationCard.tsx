@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { PredictionBadge } from "@/features/predictions/PredictionBadge";
 
 import type { RecommendationItem } from "./types";
 
@@ -17,7 +18,10 @@ export function RecommendationCard({ item, rank }: RecommendationCardProps) {
               {rank}
             </span>
             <div>
-              <p className="font-semibold">{item.brand}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold">{item.brand}</p>
+                <PredictionBadge stationId={item.station_id} fuelType={item.fuel_type} />
+              </div>
               <p className="text-sm text-muted-foreground">
                 {item.locality}, {item.province}
               </p>
