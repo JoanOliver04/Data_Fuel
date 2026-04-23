@@ -1,0 +1,112 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datafuel-backend"
+version = "0.1.0"
+description = "Data Fuel backend — real-time fuel price API with cost optimization and AI predictions"
+requires-python = ">=3.11"
+license = { text = "PolyForm-Noncommercial-1.0.0" }
+authors = [{ name = "JoanOliver04" }]
+keywords = ["fastapi", "fuel", "miteco", "spain", "ml"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "aiosqlite>=0.20",
+    "alembic>=1.14",
+    "httpx>=0.27",
+    "apscheduler>=3.10",
+    "scikit-learn>=1.5",
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "slowapi>=0.1.9",
+    "python-multipart>=0.0.20",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "black>=24.10",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+    "types-python-dateutil",
+]
+
+[project.urls]
+Repository = "https://github.com/JoanOliver04/Data_Fuel"
+Issues = "https://github.com/JoanOliver04/Data_Fuel/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+# ─── Ruff (linter + import sorter) ───────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
+ignore = ["E501"]  # handled by black
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # allow assert in tests
+
+# ─── Black (formatter) ───────────────────────────────────
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312"]
+
+# ─── Mypy (strict type checking) ─────────────────────────
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+disallow_any_unimported = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["apscheduler.*", "sklearn.*", "slowapi.*"]
+ignore_missing_imports = true
+
+# ─── Pytest ──────────────────────────────────────────────
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-fail-under=80",
+]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+# ─── Coverage ────────────────────────────────────────────
+[tool.coverage.run]
+branch = true
+source = ["app"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
