@@ -2,9 +2,9 @@
 
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.session import (
-    async_session_factory,
     get_async_session,
     get_engine,
+    get_session_factory,
 )
 
-__all__ = ["Base", "async_session_factory", "get_async_session", "get_engine"]
+__all__ = ["Base", "get_async_session", "get_engine", "get_session_factory"]

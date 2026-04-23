@@ -1,9 +1,10 @@
 """Application settings loaded from environment variables."""
 
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -38,7 +39,11 @@ class Settings(BaseSettings):
     predictions_rate_limit: str = "30/minute"
 
     # ─── CORS ─────────────────────────────────────────────
-    allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    # NoDecode skips pydantic-settings' default JSON decoding for list fields,
+    # so the comma-separated env value reaches the validator as a raw string.
+    allowed_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:5173"],
+    )
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
