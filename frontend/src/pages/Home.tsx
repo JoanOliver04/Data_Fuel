@@ -9,6 +9,7 @@ import { HealthBadge } from "@/features/health/HealthBadge";
 import { LocationPicker } from "@/features/location/LocationPicker";
 import { useRecommendations } from "@/features/recommendations/hooks";
 import { RecommendationList } from "@/features/recommendations/RecommendationList";
+import { StationMap } from "@/features/recommendations/StationMap";
 import type { RecommendationParams } from "@/features/recommendations/types";
 import { useSettingsStore } from "@/stores/settings.store";
 import { FUEL_LABELS, type FuelType } from "@/types/fuel";
@@ -132,6 +133,17 @@ export function Home() {
           )}
         </CardContent>
       </Card>
+
+      {data && data.length > 0 && userLat !== null && userLon !== null && (
+        <Card>
+          <CardHeader className="pb-3">
+            <h2 className="text-base font-semibold">🗺 Mapa</h2>
+          </CardHeader>
+          <CardContent className="overflow-hidden rounded-b-lg p-0">
+            <StationMap items={data} userLat={userLat} userLon={userLon} />
+          </CardContent>
+        </Card>
+      )}
 
       <RecommendationList
         items={data}
