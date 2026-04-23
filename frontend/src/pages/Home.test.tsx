@@ -24,16 +24,31 @@ function renderHome() {
 }
 
 describe("Home page", () => {
-  it("renders heading and current settings", () => {
+  it("renders heading", () => {
     renderHome();
-
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/Data Fuel/);
-    expect(screen.getByText(/Coste por km/)).toBeInTheDocument();
   });
 
-  it("shows demo button", () => {
+  it("renders location section", () => {
     renderHome();
+    expect(screen.getByRole("heading", { level: 2, name: /Mi ubicación/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /usar mi ubicación/i })).toBeInTheDocument();
+  });
 
-    expect(screen.getByRole("button", { name: /sumar 5 l/i })).toBeInTheDocument();
+  it("renders search section", () => {
+    renderHome();
+    expect(screen.getByText(/Búsqueda/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/litros/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/combustible/i)).toBeInTheDocument();
+  });
+
+  it("search button is disabled without location", () => {
+    renderHome();
+    expect(screen.getByRole("button", { name: /buscar/i })).toBeDisabled();
+  });
+
+  it("shows hint when location missing", () => {
+    renderHome();
+    expect(screen.getByText(/Introduce tu ubicación/i)).toBeInTheDocument();
   });
 });
