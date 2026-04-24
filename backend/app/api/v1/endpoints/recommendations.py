@@ -31,12 +31,33 @@ async def get_recommendations(
     max_distance_km: Annotated[
         float | None, Query(ge=0, description="Exclude stations beyond this distance")
     ] = None,
+    north: Annotated[
+        float | None, Query(ge=-90, le=90, description="Bounding box north latitude")
+    ] = None,
+    south: Annotated[
+        float | None, Query(ge=-90, le=90, description="Bounding box south latitude")
+    ] = None,
+    east: Annotated[
+        float | None, Query(ge=-180, le=180, description="Bounding box east longitude")
+    ] = None,
+    west: Annotated[
+        float | None, Query(ge=-180, le=180, description="Bounding box west longitude")
+    ] = None,
     session: AsyncSession = Depends(get_async_session),
 ) -> list[RecommendationOut]:
     settings = get_settings()
     effective_km_cost = km_cost if km_cost is not None else settings.default_km_cost
 
     stations = await StationRepository(session).list_all()
+
+    # Pre-filter by bounding box when all four edges are provided
+    if north is not None and south is not None and east is not None and west is not None:
+        stations = [
+            s
+            for s in stations
+            if south <= s.latitude <= north and west <= s.longitude <= east
+        ]
+
     ranked = rank_stations(
         stations=stations,
         fuel_type=fuel_type,

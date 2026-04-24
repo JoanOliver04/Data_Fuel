@@ -28,4 +28,9 @@ export interface RecommendationParams {
   limit?: number;
   km_cost?: number;
   max_distance_km?: number;
+  /** Bounding box for map-based search. All four must be set together. */
+  north?: number;
+  south?: number;
+  east?: number;
+  west?: number;
 }
