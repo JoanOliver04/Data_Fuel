@@ -2,7 +2,30 @@ import { apiFetch } from "@/lib/api-client";
 
 import type { RecommendationItem, RecommendationParams } from "./types";
 
-export function fetchRecommendations(params: RecommendationParams): Promise<RecommendationItem[]> {
+const NUMERIC_FIELDS = [
+  "station_id",
+  "latitude",
+  "longitude",
+  "price_per_liter",
+  "liters",
+  "distance_km",
+  "km_cost",
+  "fuel_cost",
+  "travel_cost",
+  "total_cost",
+] as const satisfies readonly (keyof RecommendationItem)[];
+
+function normalize(item: RecommendationItem): RecommendationItem {
+  const out = { ...item };
+  for (const key of NUMERIC_FIELDS) {
+    (out as Record<string, unknown>)[key] = Number(item[key]);
+  }
+  return out;
+}
+
+export async function fetchRecommendations(
+  params: RecommendationParams,
+): Promise<RecommendationItem[]> {
   const qs = new URLSearchParams({
     lat: String(params.lat),
     lon: String(params.lon),
@@ -17,5 +40,6 @@ export function fetchRecommendations(params: RecommendationParams): Promise<Reco
   if (params.east !== undefined) qs.set("east", String(params.east));
   if (params.west !== undefined) qs.set("west", String(params.west));
 
-  return apiFetch<RecommendationItem[]>(`/api/v1/recommendations?${qs}`);
+  const data = await apiFetch<RecommendationItem[]>(`/api/v1/recommendations?${qs}`);
+  return data.map(normalize);
 }
