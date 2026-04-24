@@ -9,6 +9,8 @@ import { FiltersBar } from "@/features/search/FiltersBar";
 import { useRecommendations } from "@/features/recommendations/hooks";
 import { StationList } from "@/features/recommendations/StationList";
 import type { RecommendationItem, RecommendationParams } from "@/features/recommendations/types";
+import { SmartAdviceCard } from "@/features/smart-advice/SmartAdviceCard";
+import type { SmartAdviceParams } from "@/features/smart-advice/types";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useSearchStore } from "@/stores/search.store";
 import { cn } from "@/lib/utils";
@@ -153,6 +155,17 @@ export function Home() {
 
   const { data, isLoading, isError } = useRecommendations(searchParams);
 
+  const smartAdviceParams = useMemo<SmartAdviceParams | null>(() => {
+    if (userLat === null || userLon === null) return null;
+    return {
+      lat: userLat,
+      lon: userLon,
+      fuel_type: preferredFuel,
+      liters,
+      km_cost: kmCost,
+    };
+  }, [userLat, userLon, preferredFuel, liters, kmCost]);
+
   // Unique brands for FiltersModal
   const allBrands = useMemo<string[]>(() => {
     if (!data) return [];
@@ -216,15 +229,20 @@ export function Home() {
         {/* ── Desktop: station list sidebar (left) ──────────────────────── */}
         <aside className="hidden w-[380px] shrink-0 flex-col overflow-hidden border-r border-border lg:flex">
           {userLat !== null && userLon !== null ? (
-            <StationList
-              items={processedData}
-              isLoading={isLoading}
-              isError={isError}
-              hasSearched={hasSearched}
-              selectedStationId={selectedStationId}
-              onStationSelect={setSelectedStationId}
-              onStationHover={setHoveredStationId}
-            />
+            <>
+              <div className="shrink-0 px-4 pt-4">
+                <SmartAdviceCard params={smartAdviceParams} />
+              </div>
+              <StationList
+                items={processedData}
+                isLoading={isLoading}
+                isError={isError}
+                hasSearched={hasSearched}
+                selectedStationId={selectedStationId}
+                onStationSelect={setSelectedStationId}
+                onStationHover={setHoveredStationId}
+              />
+            </>
           ) : (
             <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
               <span className="text-5xl">📍</span>
@@ -265,6 +283,11 @@ export function Home() {
           {/* ── Mobile bottom sheet (overlays map) ──────────────────────── */}
           <div className="lg:hidden">
             <BottomSheet>
+              {smartAdviceParams && (
+                <div className="px-4 pt-3">
+                  <SmartAdviceCard params={smartAdviceParams} />
+                </div>
+              )}
               <StationList
                 items={processedData}
                 isLoading={isLoading}

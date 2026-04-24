@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health, predictions, recommendations, stations
+from app.api.v1.endpoints import health, predictions, recommendations, smart_advice, stations
 
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(stations.router)
 api_router.include_router(recommendations.router)
 api_router.include_router(predictions.router)
+api_router.include_router(smart_advice.router)
