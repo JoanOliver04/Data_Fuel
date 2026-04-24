@@ -1,158 +1,126 @@
-import { Moon, Search, Sun } from "lucide-react";
-import { useState } from "react";
+import { Moon, Sun } from "lucide-react";
+import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { FuelSelector } from "@/features/fuel-selector/FuelSelector";
 import { HealthBadge } from "@/features/health/HealthBadge";
-import { LocationPicker } from "@/features/location/LocationPicker";
+import { SearchBar } from "@/features/search/SearchBar";
+import { FiltersBar } from "@/features/search/FiltersBar";
 import { useRecommendations } from "@/features/recommendations/hooks";
 import { RecommendationList } from "@/features/recommendations/RecommendationList";
 import { StationMap } from "@/features/recommendations/StationMap";
-import type { RecommendationParams } from "@/features/recommendations/types";
+import type { RecommendationParams, RecommendationItem } from "@/features/recommendations/types";
 import { useSettingsStore } from "@/stores/settings.store";
+import { useSearchStore } from "@/stores/search.store";
+
+function stationIsOpen(schedule: string): boolean {
+  if (!schedule) return true;
+  const s = schedule.toUpperCase();
+  return s.includes("24H") || s.includes("L-D: 24");
+}
 
 export function Home() {
-  const { liters, kmCost, preferredFuel, userLat, userLon, theme, setLiters, setKmCost, setPreferredFuel, setLocation, setTheme } = useSettingsStore();
+  const { liters, kmCost, preferredFuel, userLat, userLon, theme, setTheme } = useSettingsStore();
+  const { radius, sortBy, filterBrands, filterOpenNow } = useSearchStore();
 
-  const [maxDistance, setMaxDistance] = useState<number | undefined>(undefined);
-  const [searchParams, setSearchParams] = useState<RecommendationParams | null>(null);
-
-  const { data, isLoading, isError } = useRecommendations(searchParams);
-
-  const canSearch = userLat !== null && userLon !== null;
-
-  function handleSearch() {
-    if (!canSearch) return;
+  const searchParams = useMemo<RecommendationParams | null>(() => {
+    if (userLat === null || userLon === null) return null;
     const params: RecommendationParams = {
       lat: userLat,
       lon: userLon,
       liters,
       fuel_type: preferredFuel,
       km_cost: kmCost,
-      limit: 10,
+      limit: 25,
     };
-    if (maxDistance !== undefined) params.max_distance_km = maxDistance;
-    setSearchParams(params);
-  }
+    if (radius !== undefined) params.max_distance_km = radius;
+    return params;
+  }, [userLat, userLon, liters, preferredFuel, kmCost, radius]);
+
+  const { data, isLoading, isError } = useRecommendations(searchParams);
+
+  const allBrands = useMemo<string[]>(() => {
+    if (!data) return [];
+    return [...new Set(data.map((item) => item.brand))].sort();
+  }, [data]);
+
+  const processedData = useMemo<RecommendationItem[] | undefined>(() => {
+    if (!data) return undefined;
+    let items = [...data];
+
+    if (filterBrands.length > 0) {
+      items = items.filter((item) => filterBrands.includes(item.brand));
+    }
+    if (filterOpenNow) {
+      items = items.filter((item) => stationIsOpen(item.schedule));
+    }
+
+    items.sort((a, b) => {
+      if (sortBy === "price") return a.price_per_liter - b.price_per_liter;
+      if (sortBy === "distance") return a.distance_km - b.distance_km;
+      return a.total_cost - b.total_cost;
+    });
+
+    return items;
+  }, [data, filterBrands, filterOpenNow, sortBy]);
 
   return (
-    <main className="container max-w-2xl space-y-6 py-8">
-      <header>
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-bold tracking-tight">Data Fuel ⛽</h1>
-            <p className="text-muted-foreground">
-              Encuentra la gasolinera más rentable según precio y distancia.
-            </p>
-            <HealthBadge />
+    <div className="min-h-dvh bg-muted/20">
+      {/* Sticky header */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto max-w-4xl space-y-2.5 px-4 pb-3 pt-3">
+          {/* Brand row */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-lg font-bold tracking-tight">Data Fuel ⛽</h1>
+              <HealthBadge />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-          >
-            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </Button>
+
+          {/* Search bar */}
+          <SearchBar isSearching={isLoading} />
+
+          {/* Filter bar */}
+          <FiltersBar allBrands={allBrands} />
         </div>
       </header>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <h2 className="text-base font-semibold">📍 Mi ubicación</h2>
-        </CardHeader>
-        <CardContent>
-          <LocationPicker lat={userLat} lon={userLon} onLocationChange={setLocation} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <h2 className="text-base font-semibold">🔍 Búsqueda</h2>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label htmlFor="liters">Litros a repostar</Label>
-              <Input
-                id="liters"
-                type="number"
-                min={1}
-                max={200}
-                step={1}
-                value={liters}
-                onChange={(e) => setLiters(Number(e.target.value))}
-              />
-            </div>
+      {/* Results */}
+      <main className="mx-auto max-w-4xl space-y-4 px-4 py-4">
+        {/* Map */}
+        {processedData && processedData.length > 0 && userLat !== null && userLon !== null && (
+          <div className="overflow-hidden rounded-2xl border border-border shadow-sm">
+            <StationMap items={processedData} userLat={userLat} userLon={userLon} />
           </div>
+        )}
 
-          <div className="space-y-1">
-            <Label>Combustible</Label>
-            <FuelSelector value={preferredFuel} onChange={setPreferredFuel} className="pt-0.5" />
-          </div>
+        {/* Station list */}
+        <RecommendationList
+          items={processedData}
+          isLoading={isLoading}
+          isError={isError}
+          hasSearched={searchParams !== null}
+        />
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label htmlFor="kmcost">Coste por km (€/km)</Label>
-              <Input
-                id="kmcost"
-                type="number"
-                min={0}
-                max={5}
-                step={0.01}
-                value={kmCost}
-                onChange={(e) => setKmCost(Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="maxdist">Distancia máx. (km)</Label>
-              <Input
-                id="maxdist"
-                type="number"
-                min={0}
-                step={1}
-                placeholder="Sin límite"
-                value={maxDistance ?? ""}
-                onChange={(e) =>
-                  setMaxDistance(e.target.value ? Number(e.target.value) : undefined)
-                }
-              />
-            </div>
-          </div>
-
-          <Button className="w-full" onClick={handleSearch} disabled={!canSearch || isLoading}>
-            <Search className="h-4 w-4" />
-            {isLoading ? "Buscando…" : "Buscar gasolineras"}
-          </Button>
-
-          {!canSearch && (
-            <p className="text-center text-xs text-muted-foreground">
-              Introduce tu ubicación antes de buscar.
+        {/* Empty state when no location set */}
+        {searchParams === null && (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <span className="text-5xl">📍</span>
+            <p className="text-base font-medium">¿Dónde quieres repostar?</p>
+            <p className="max-w-xs text-sm text-muted-foreground">
+              Pulsa el icono de ubicación en la barra de búsqueda o escribe tu ciudad para
+              encontrar las mejores gasolineras.
             </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {data && data.length > 0 && userLat !== null && userLon !== null && (
-        <Card>
-          <CardHeader className="pb-3">
-            <h2 className="text-base font-semibold">🗺 Mapa</h2>
-          </CardHeader>
-          <CardContent className="overflow-hidden rounded-b-lg p-0">
-            <StationMap items={data} userLat={userLat} userLon={userLon} />
-          </CardContent>
-        </Card>
-      )}
-
-      <RecommendationList
-        items={data}
-        isLoading={isLoading}
-        isError={isError}
-        hasSearched={searchParams !== null}
-      />
-    </main>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

@@ -82,9 +82,43 @@ export interface FuelSelectorProps {
   value: FuelType;
   onChange: (value: FuelType) => void;
   className?: string;
+  /** Flat single-row layout without group headers, smaller buttons */
+  compact?: boolean;
 }
 
-export function FuelSelector({ value, onChange, className }: FuelSelectorProps) {
+export function FuelSelector({ value, onChange, className, compact }: FuelSelectorProps) {
+  if (compact) {
+    return (
+      <div className={cn("flex flex-wrap gap-1", className)} role="group" aria-label="Selección de combustible">
+        {FUEL_GROUPS.flatMap((group) =>
+          group.options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              aria-pressed={value === option.value}
+              title={option.tooltip}
+              className={cn(
+                "relative rounded-lg px-2.5 py-1 text-xs font-medium transition-all duration-150",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                value === option.value
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              )}
+            >
+              {option.shortLabel}
+              {option.isPremium === true && (
+                <span aria-label="premium" className="absolute -right-1 -top-1 text-[9px]">
+                  ⭐
+                </span>
+              )}
+            </button>
+          )),
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={cn("space-y-3", className)} role="group" aria-label="Selección de combustible">
       {FUEL_GROUPS.map((group) => (
@@ -98,7 +132,7 @@ export function FuelSelector({ value, onChange, className }: FuelSelectorProps) 
                 key={option.value}
                 icon={option.icon}
                 shortLabel={option.shortLabel}
-                isPremium={option.isPremium}
+                {...(option.isPremium ? { isPremium: true as const } : {})}
                 isSelected={value === option.value}
                 onClick={() => onChange(option.value)}
                 tooltip={option.tooltip}
