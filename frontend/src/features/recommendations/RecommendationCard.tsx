@@ -1,4 +1,11 @@
+import { useState } from "react";
+
+import { ChevronDown, ChevronUp } from "lucide-react";
+
 import { Card, CardContent } from "@/components/ui/card";
+import { FavoriteButton } from "@/features/favorites/FavoriteButton";
+import { PriceHistoryChart } from "@/features/price-history/PriceHistoryChart";
+import { usePriceHistory } from "@/features/price-history/hooks";
 import { PredictionBadge } from "@/features/predictions/PredictionBadge";
 
 import type { RecommendationItem } from "./types";
@@ -9,6 +16,9 @@ interface RecommendationCardProps {
 }
 
 export function RecommendationCard({ item, rank }: RecommendationCardProps) {
+  const [showChart, setShowChart] = useState(false);
+  const { data: history } = usePriceHistory(item.station_id, item.fuel_type, showChart);
+
   return (
     <Card>
       <CardContent className="p-4">
@@ -18,9 +28,10 @@ export function RecommendationCard({ item, rank }: RecommendationCardProps) {
               {rank}
             </span>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <p className="font-semibold">{item.brand}</p>
                 <PredictionBadge stationId={item.station_id} fuelType={item.fuel_type} />
+                <FavoriteButton stationId={item.station_id} />
               </div>
               <p className="text-sm text-muted-foreground">
                 {item.locality}, {item.province}
@@ -50,6 +61,27 @@ export function RecommendationCard({ item, rank }: RecommendationCardProps) {
             </p>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowChart((prev) => !prev)}
+          aria-expanded={showChart}
+          aria-label="Mostrar historial de precios"
+          className="mt-2 flex w-full items-center justify-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {showChart ? (
+            <ChevronUp className="h-3 w-3" />
+          ) : (
+            <ChevronDown className="h-3 w-3" />
+          )}
+          {showChart ? "Ocultar historial" : "Ver historial"}
+        </button>
+
+        {showChart && (
+          <div className="mt-2 border-t pt-2">
+            <PriceHistoryChart data={history ?? []} />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,5 +1,7 @@
 """SQLAlchemy repository for fuel price history."""
 
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +29,23 @@ class PriceRepository:
             )
             total += result.rowcount
         return total
+
+    async def get_price_history(
+        self, station_id: int, fuel_type: FuelType, days: int = 30
+    ) -> list[dict]:
+        """Return recent price points for a station/fuel_type sorted by time."""
+        cutoff = datetime.now(tz=UTC) - timedelta(days=days)
+        stmt = (
+            select(PriceHistoryORM.recorded_at, PriceHistoryORM.price)
+            .where(
+                PriceHistoryORM.station_id == station_id,
+                PriceHistoryORM.fuel_type == fuel_type,
+                PriceHistoryORM.recorded_at >= cutoff,
+            )
+            .order_by(PriceHistoryORM.recorded_at)
+        )
+        result = await self._session.execute(stmt)
+        return [{"recorded_at": row.recorded_at, "price": float(row.price)} for row in result]
 
     async def get_training_data(self, fuel_type: FuelType) -> list[dict]:
         """Return price rows joined with station metadata for ML training."""

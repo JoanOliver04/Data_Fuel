@@ -12,10 +12,12 @@ interface SettingsState {
   preferredFuel: FuelType;
   userLat: number | null;
   userLon: number | null;
+  favorites: number[];
   setKmCost: (value: number) => void;
   setLiters: (value: number) => void;
   setPreferredFuel: (value: FuelType) => void;
   setLocation: (lat: number, lon: number) => void;
+  toggleFavorite: (stationId: number) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -26,10 +28,17 @@ export const useSettingsStore = create<SettingsState>()(
       preferredFuel: "gasoline_95_e5",
       userLat: null,
       userLon: null,
+      favorites: [],
       setKmCost: (value) => set({ kmCost: value }),
       setLiters: (value) => set({ liters: value }),
       setPreferredFuel: (value) => set({ preferredFuel: value }),
       setLocation: (lat, lon) => set({ userLat: lat, userLon: lon }),
+      toggleFavorite: (stationId) =>
+        set((state) => ({
+          favorites: state.favorites.includes(stationId)
+            ? state.favorites.filter((id) => id !== stationId)
+            : [...state.favorites, stationId],
+        })),
     }),
     { name: "datafuel-settings" },
   ),
