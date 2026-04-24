@@ -2,8 +2,9 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -37,9 +38,9 @@ class SyncService:
             log.exception("MITECO API request failed — sync aborted")
             raise
 
-        now = datetime.now(timezone.utc)
-        station_rows: list[dict] = []
-        price_rows: list[dict] = []
+        now = datetime.now(UTC)
+        station_rows: list[dict[str, Any]] = []
+        price_rows: list[dict[str, Any]] = []
         skipped = 0
 
         for ms in response.stations:
@@ -68,7 +69,7 @@ class SyncService:
         return result
 
 
-def _station_dict(ms: MitecoStation, now: datetime) -> dict:
+def _station_dict(ms: MitecoStation, now: datetime) -> dict[str, Any]:
     return {
         "id": ms.id,
         "brand": ms.brand,
@@ -89,7 +90,7 @@ def _station_dict(ms: MitecoStation, now: datetime) -> dict:
     }
 
 
-def _price_dicts(ms: MitecoStation, now: datetime) -> list[dict]:
+def _price_dicts(ms: MitecoStation, now: datetime) -> list[dict[str, Any]]:
     rows = []
     for fuel_type, value in ms.prices_by_fuel().items():
         if value is not None:

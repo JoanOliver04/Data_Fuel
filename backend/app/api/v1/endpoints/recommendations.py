@@ -2,11 +2,12 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas.recommendation import RecommendationOut
 from app.core.config import get_settings
+from app.core.rate_limit import limiter
 from app.domain.entities.fuel_type import FuelType
 from app.domain.services.cost_calculator import rank_stations
 from app.infrastructure.database.session import get_async_session
@@ -16,7 +17,9 @@ router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
 
 @router.get("", response_model=list[RecommendationOut], summary="Rank stations by total cost")
+@limiter.limit(lambda: get_settings().geocoding_rate_limit)
 async def get_recommendations(
+    request: Request,
     lat: Annotated[float, Query(ge=-90, le=90, description="User latitude (WGS84)")],
     lon: Annotated[float, Query(ge=-180, le=180, description="User longitude (WGS84)")],
     liters: Annotated[float, Query(gt=0, le=200, description="Litres to refuel")],

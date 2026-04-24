@@ -1,8 +1,9 @@
 """SQLAlchemy repository for fuel price history."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import CursorResult, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,21 +19,24 @@ class PriceRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def insert_many(self, rows: list[dict]) -> int:
+    async def insert_many(self, rows: list[dict[str, Any]]) -> int:
         """Bulk-insert price history rows. No conflict resolution — each row is a new observation."""
         if not rows:
             return 0
         total = 0
         for i in range(0, len(rows), _CHUNK):
-            result = await self._session.execute(
-                sqlite_insert(PriceHistoryORM).values(rows[i : i + _CHUNK])
+            result = cast(
+                CursorResult[Any],
+                await self._session.execute(
+                    sqlite_insert(PriceHistoryORM).values(rows[i : i + _CHUNK])
+                ),
             )
             total += result.rowcount
         return total
 
     async def get_price_history(
         self, station_id: int, fuel_type: FuelType, days: int = 30
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Return recent price points for a station/fuel_type sorted by time."""
         cutoff = datetime.now(tz=UTC) - timedelta(days=days)
         stmt = (
@@ -47,7 +51,7 @@ class PriceRepository:
         result = await self._session.execute(stmt)
         return [{"recorded_at": row.recorded_at, "price": float(row.price)} for row in result]
 
-    async def get_training_data(self, fuel_type: FuelType) -> list[dict]:
+    async def get_training_data(self, fuel_type: FuelType) -> list[dict[str, Any]]:
         """Return price rows joined with station metadata for ML training."""
         stmt = (
             select(

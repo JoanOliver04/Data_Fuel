@@ -11,13 +11,13 @@ USER_LON = -0.376
 
 
 def _station(station_id: int, lat: float, lon: float, **prices) -> StationORM:
-    defaults = dict(
-        price_gasoline_95_e5=Decimal("1.595"),
-        price_gasoline_95_e10=None,
-        price_gasoline_98_e5=Decimal("1.699"),
-        price_diesel_a=Decimal("1.489"),
-        price_diesel_premium=None,
-    )
+    defaults = {
+        "price_gasoline_95_e5": Decimal("1.595"),
+        "price_gasoline_95_e10": None,
+        "price_gasoline_98_e5": Decimal("1.699"),
+        "price_diesel_a": Decimal("1.489"),
+        "price_diesel_premium": None,
+    }
     defaults.update(prices)
     return StationORM(
         id=station_id,

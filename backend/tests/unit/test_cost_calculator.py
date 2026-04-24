@@ -1,6 +1,5 @@
 """Unit tests for the cost calculator domain service."""
 
-import math
 from decimal import Decimal
 from unittest.mock import MagicMock
 
@@ -8,12 +7,10 @@ import pytest
 
 from app.domain.entities.fuel_type import FuelType
 from app.domain.services.cost_calculator import (
-    StationCost,
     haversine_km,
     rank_stations,
 )
 from app.infrastructure.database.models.station import StationORM
-
 
 # ── haversine_km ──────────────────────────────────────────────────────────
 

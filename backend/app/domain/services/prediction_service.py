@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -135,5 +136,5 @@ def _make_advice(change_pct: float) -> str:
     return "Precio estable, indistinto cuándo repostes"
 
 
-def prediction_result_as_dict(result: PredictionResult) -> dict:  # type: ignore[return]
+def prediction_result_as_dict(result: PredictionResult) -> dict[str, Any]:
     return dataclasses.asdict(result)

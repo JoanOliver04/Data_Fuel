@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas.prediction import PredictionOut
+from app.core.config import get_settings
+from app.core.rate_limit import limiter
 from app.domain.entities.fuel_type import FuelType
 from app.domain.services.prediction_service import PredictionService, TrainingRow
 from app.infrastructure.database.session import get_async_session
@@ -22,7 +24,9 @@ def _get_prediction_service(request: Request) -> PredictionService:
     response_model=PredictionOut,
     summary="48h price prediction for a station",
 )
+@limiter.limit(lambda: get_settings().predictions_rate_limit)
 async def get_prediction(
+    request: Request,
     station_id: int,
     fuel_type: FuelType,
     session: AsyncSession = Depends(get_async_session),

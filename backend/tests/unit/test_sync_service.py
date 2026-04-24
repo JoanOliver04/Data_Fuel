@@ -1,14 +1,13 @@
 """Unit tests for SyncService."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.infrastructure.external.miteco.schemas import MitecoApiResponse, MitecoStation
 from app.services.sync_service import SyncService, _dec, _price_dicts, _station_dict
-
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
@@ -55,7 +54,7 @@ def test_dec_zero():
 
 def test_station_dict_basic():
     ms = _make_station()
-    now = datetime(2026, 4, 23, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 23, 12, 0, tzinfo=UTC)
     row = _station_dict(ms, now)
 
     assert row["id"] == 1001
@@ -71,7 +70,7 @@ def test_station_dict_basic():
 
 def test_price_dicts_only_non_null():
     ms = _make_station()
-    now = datetime(2026, 4, 23, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 23, 12, 0, tzinfo=UTC)
     rows = _price_dicts(ms, now)
 
     fuel_types = {r["fuel_type"] for r in rows}
@@ -92,7 +91,7 @@ def test_price_dicts_empty_when_no_prices():
             "Precio Gasoleo Premium": "",
         }
     )
-    now = datetime(2026, 4, 23, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 23, 12, 0, tzinfo=UTC)
     assert _price_dicts(ms, now) == []
 
 

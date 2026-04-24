@@ -3,4 +3,4 @@
 from app.repositories.price_repository import PriceRepository
 from app.repositories.station_repository import StationRepository
 
-__all__ = ["StationRepository", "PriceRepository"]
+__all__ = ["PriceRepository", "StationRepository"]

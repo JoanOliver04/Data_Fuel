@@ -27,15 +27,16 @@ export function Home() {
 
   function handleSearch() {
     if (!canSearch) return;
-    setSearchParams({
+    const params: RecommendationParams = {
       lat: userLat,
       lon: userLon,
       liters,
       fuel_type: preferredFuel,
       km_cost: kmCost,
-      max_distance_km: maxDistance,
       limit: 10,
-    });
+    };
+    if (maxDistance !== undefined) params.max_distance_km = maxDistance;
+    setSearchParams(params);
   }
 
   return (

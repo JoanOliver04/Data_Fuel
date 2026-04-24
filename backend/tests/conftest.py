@@ -76,6 +76,8 @@ async def api_client(test_settings: Settings) -> AsyncGenerator[AsyncClient, Non
 
     app = create_app()
     app.state.prediction_service = PredictionService()
+    # Rate limiter would flake cross-test under a shared in-memory store; disable for tests.
+    app.state.limiter.enabled = False
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client

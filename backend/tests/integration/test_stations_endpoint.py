@@ -6,7 +6,6 @@ import pytest
 
 from app.infrastructure.database.models.station import StationORM
 
-
 # ── fixtures ───────────────────────────────────────────────────────────────
 
 

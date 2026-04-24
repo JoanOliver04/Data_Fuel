@@ -10,9 +10,9 @@ vi.mock("@/stores/settings.store");
 const mockToggle = vi.fn();
 
 function mockStore(favorites: number[]) {
-  vi.mocked(useSettingsStore).mockImplementation((selector: (s: any) => any) =>
-    selector({ favorites, toggleFavorite: mockToggle }),
-  );
+  const state = { favorites, toggleFavorite: mockToggle };
+  vi.mocked(useSettingsStore).mockImplementation(((selector?: (s: unknown) => unknown) =>
+    selector ? selector(state) : state) as typeof useSettingsStore);
 }
 
 describe("FavoriteButton", () => {

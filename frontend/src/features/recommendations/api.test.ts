@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError } from "@/lib/api-client";
-
 import { fetchRecommendations } from "./api";
 import type { RecommendationItem } from "./types";
 
@@ -27,14 +25,6 @@ const mockItem: RecommendationItem = {
 
 vi.mock("@/lib/api-client", () => ({
   apiFetch: vi.fn(),
-  ApiError: class ApiError extends Error {
-    constructor(
-      public status: number,
-      message: string,
-    ) {
-      super(message);
-    }
-  },
 }));
 
 afterEach(() => vi.resetAllMocks());
@@ -49,7 +39,7 @@ describe("fetchRecommendations", () => {
     expect(vi.mocked(apiFetch)).toHaveBeenCalledWith(
       expect.stringContaining("/api/v1/recommendations"),
     );
-    const calledUrl = vi.mocked(apiFetch).mock.calls[0][0] as string;
+    const calledUrl = vi.mocked(apiFetch).mock.calls[0]![0] as string;
     expect(calledUrl).toContain("lat=39.47");
     expect(calledUrl).toContain("lon=-0.376");
     expect(calledUrl).toContain("liters=40");
@@ -70,7 +60,7 @@ describe("fetchRecommendations", () => {
       limit: 5,
     });
 
-    const calledUrl = vi.mocked(apiFetch).mock.calls[0][0] as string;
+    const calledUrl = vi.mocked(apiFetch).mock.calls[0]![0] as string;
     expect(calledUrl).toContain("km_cost=0.2");
     expect(calledUrl).toContain("max_distance_km=15");
     expect(calledUrl).toContain("limit=5");
@@ -82,7 +72,7 @@ describe("fetchRecommendations", () => {
 
     await fetchRecommendations({ lat: 39.47, lon: -0.376, liters: 40, fuel_type: "gasoline_95_e5" });
 
-    const calledUrl = vi.mocked(apiFetch).mock.calls[0][0] as string;
+    const calledUrl = vi.mocked(apiFetch).mock.calls[0]![0] as string;
     expect(calledUrl).not.toContain("km_cost");
     expect(calledUrl).not.toContain("max_distance_km");
     expect(calledUrl).not.toContain("limit");
