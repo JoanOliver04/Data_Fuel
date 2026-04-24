@@ -14,6 +14,16 @@ from app.repositories.station_repository import StationRepository
 
 router = APIRouter(prefix="/predictions", tags=["predictions"])
 
+# Maps FuelType enum values to the corresponding StationORM attribute name.
+# Explicit mapping needed because ORM column names predate the enum refactor.
+_FUEL_PRICE_ATTR: dict[FuelType, str] = {
+    FuelType.GASOLINA_95: "price_gasoline_95_e5",
+    FuelType.GASOLINA_95_E10: "price_gasoline_95_e10",
+    FuelType.GASOLINA_98: "price_gasoline_98_e5",
+    FuelType.GASOIL: "price_diesel_a",
+    FuelType.GASOIL_PREMIUM: "price_diesel_premium",
+}
+
 
 def _get_prediction_service(request: Request) -> PredictionService:
     return request.app.state.prediction_service  # type: ignore[no-any-return]
@@ -36,7 +46,7 @@ async def get_prediction(
     if station is None:
         raise HTTPException(status_code=404, detail="Station not found")
 
-    current_price = getattr(station, f"price_{fuel_type}")
+    current_price = getattr(station, _FUEL_PRICE_ATTR[fuel_type])
     if current_price is None:
         raise HTTPException(
             status_code=404, detail="No current price for this fuel type at this station"

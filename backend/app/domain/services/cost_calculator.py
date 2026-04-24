@@ -110,9 +110,9 @@ def rank_stations(
 
 def _price_for(station: StationORM, fuel_type: FuelType) -> Decimal | None:
     return {
-        FuelType.GASOLINE_95_E5: station.price_gasoline_95_e5,
-        FuelType.GASOLINE_95_E10: station.price_gasoline_95_e10,
-        FuelType.GASOLINE_98_E5: station.price_gasoline_98_e5,
-        FuelType.DIESEL_A: station.price_diesel_a,
-        FuelType.DIESEL_PREMIUM: station.price_diesel_premium,
+        FuelType.GASOLINA_95: station.price_gasoline_95_e5,
+        FuelType.GASOLINA_95_E10: station.price_gasoline_95_e10,
+        FuelType.GASOLINA_98: station.price_gasoline_98_e5,
+        FuelType.GASOIL: station.price_diesel_a,
+        FuelType.GASOIL_PREMIUM: station.price_diesel_premium,
     }.get(fuel_type)

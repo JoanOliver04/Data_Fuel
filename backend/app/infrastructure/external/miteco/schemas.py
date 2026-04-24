@@ -62,11 +62,11 @@ class MitecoStation(BaseModel):
     def prices_by_fuel(self) -> dict[FuelType, float | None]:
         """Return prices keyed by domain FuelType for easier downstream mapping."""
         return {
-            FuelType.GASOLINE_95_E5: self.price_gasoline_95_e5,
-            FuelType.GASOLINE_95_E10: self.price_gasoline_95_e10,
-            FuelType.GASOLINE_98_E5: self.price_gasoline_98_e5,
-            FuelType.DIESEL_A: self.price_diesel_a,
-            FuelType.DIESEL_PREMIUM: self.price_diesel_premium,
+            FuelType.GASOLINA_95: self.price_gasoline_95_e5,
+            FuelType.GASOLINA_95_E10: self.price_gasoline_95_e10,
+            FuelType.GASOLINA_98: self.price_gasoline_98_e5,
+            FuelType.GASOIL: self.price_diesel_a,
+            FuelType.GASOIL_PREMIUM: self.price_diesel_premium,
         }
 
 

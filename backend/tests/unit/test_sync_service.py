@@ -77,8 +77,8 @@ def test_price_dicts_only_non_null():
     # 95 E5, 98 E5, Diesel A are set; 95 E10 and Premium are empty.
     assert len(rows) == 3
     assert all(r["station_id"] == 1001 for r in rows)
-    assert "gasoline_95_e10" not in fuel_types
-    assert "diesel_premium" not in fuel_types
+    assert "gasolina_95_e10" not in fuel_types
+    assert "gasoil_premium" not in fuel_types
 
 
 def test_price_dicts_empty_when_no_prices():

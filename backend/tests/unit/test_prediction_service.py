@@ -29,12 +29,12 @@ class TestPredictionServiceInsufficientData:
     def test_returns_none_when_below_min_samples(self):
         svc = PredictionService()
         rows = _make_rows(MIN_SAMPLES - 1)
-        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.DIESEL_A)
+        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.GASOIL)
         assert result is None
 
     def test_returns_none_with_empty_rows(self):
         svc = PredictionService()
-        result = svc.predict([], 1.489, "REPSOL", "Valencia", FuelType.DIESEL_A)
+        result = svc.predict([], 1.489, "REPSOL", "Valencia", FuelType.GASOIL)
         assert result is None
 
 
@@ -42,27 +42,27 @@ class TestPredictionServiceResult:
     def test_returns_prediction_result_with_enough_data(self):
         svc = PredictionService()
         rows = _make_rows(MIN_SAMPLES)
-        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.DIESEL_A)
+        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.GASOIL)
         assert isinstance(result, PredictionResult)
 
     def test_predicted_price_is_positive(self):
         svc = PredictionService()
         rows = _make_rows(MIN_SAMPLES)
-        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.DIESEL_A)
+        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.GASOIL)
         assert result is not None
         assert result.predicted_price > 0
 
     def test_horizon_hours_is_48(self):
         svc = PredictionService()
         rows = _make_rows(MIN_SAMPLES)
-        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.DIESEL_A)
+        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.GASOIL)
         assert result is not None
         assert result.horizon_hours == 48
 
     def test_change_pct_sign_matches_direction(self):
         svc = PredictionService()
         rows = _make_rows(MIN_SAMPLES)
-        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.DIESEL_A)
+        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.GASOIL)
         assert result is not None
         # change_pct sign must match the direction between predicted and current
         if result.predicted_price > result.current_price:
@@ -73,7 +73,7 @@ class TestPredictionServiceResult:
     def test_model_r2_is_between_0_and_1(self):
         svc = PredictionService()
         rows = _make_rows(MIN_SAMPLES)
-        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.DIESEL_A)
+        result = svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.GASOIL)
         assert result is not None
         # R² can be negative for very bad fits, but should be finite
         assert isinstance(result.model_r2, float)
@@ -81,21 +81,21 @@ class TestPredictionServiceResult:
     def test_cache_reused_on_second_call(self):
         svc = PredictionService()
         rows = _make_rows(MIN_SAMPLES)
-        svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.DIESEL_A)
+        svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.GASOIL)
         # Populate cache — second call should hit it
-        assert FuelType.DIESEL_A in svc._cache
+        assert FuelType.GASOIL in svc._cache
 
     def test_invalidate_clears_specific_fuel_type(self):
         svc = PredictionService()
         rows = _make_rows(MIN_SAMPLES)
-        svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.DIESEL_A)
-        svc.invalidate(FuelType.DIESEL_A)
-        assert FuelType.DIESEL_A not in svc._cache
+        svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.GASOIL)
+        svc.invalidate(FuelType.GASOIL)
+        assert FuelType.GASOIL not in svc._cache
 
     def test_invalidate_all_clears_cache(self):
         svc = PredictionService()
         rows = _make_rows(MIN_SAMPLES)
-        svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.DIESEL_A)
+        svc.predict(rows, 1.489, "REPSOL", "Valencia", FuelType.GASOIL)
         svc.invalidate()
         assert svc._cache == {}
 

@@ -13,7 +13,7 @@ const mockItem: RecommendationItem = {
   latitude: 39.47,
   longitude: -0.376,
   schedule: "L-D: 24H",
-  fuel_type: "diesel_a",
+  fuel_type: "gasoil",
   price_per_liter: 1.489,
   liters: 40,
   distance_km: 0.5,
@@ -34,7 +34,7 @@ describe("fetchRecommendations", () => {
     const { apiFetch } = await import("@/lib/api-client");
     vi.mocked(apiFetch).mockResolvedValue([mockItem]);
 
-    await fetchRecommendations({ lat: 39.47, lon: -0.376, liters: 40, fuel_type: "diesel_a" });
+    await fetchRecommendations({ lat: 39.47, lon: -0.376, liters: 40, fuel_type: "gasoil" });
 
     expect(vi.mocked(apiFetch)).toHaveBeenCalledWith(
       expect.stringContaining("/api/v1/recommendations"),
@@ -43,7 +43,7 @@ describe("fetchRecommendations", () => {
     expect(calledUrl).toContain("lat=39.47");
     expect(calledUrl).toContain("lon=-0.376");
     expect(calledUrl).toContain("liters=40");
-    expect(calledUrl).toContain("fuel_type=diesel_a");
+    expect(calledUrl).toContain("fuel_type=gasoil");
   });
 
   it("includes optional params when provided", async () => {
@@ -54,7 +54,7 @@ describe("fetchRecommendations", () => {
       lat: 39.47,
       lon: -0.376,
       liters: 40,
-      fuel_type: "diesel_a",
+      fuel_type: "gasoil",
       km_cost: 0.2,
       max_distance_km: 15,
       limit: 5,
@@ -70,7 +70,7 @@ describe("fetchRecommendations", () => {
     const { apiFetch } = await import("@/lib/api-client");
     vi.mocked(apiFetch).mockResolvedValue([]);
 
-    await fetchRecommendations({ lat: 39.47, lon: -0.376, liters: 40, fuel_type: "gasoline_95_e5" });
+    await fetchRecommendations({ lat: 39.47, lon: -0.376, liters: 40, fuel_type: "gasolina_95" });
 
     const calledUrl = vi.mocked(apiFetch).mock.calls[0]![0] as string;
     expect(calledUrl).not.toContain("km_cost");

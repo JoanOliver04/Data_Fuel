@@ -57,9 +57,9 @@ def test_prices_by_fuel_returns_full_mapping() -> None:
     prices = station.prices_by_fuel()
 
     assert set(prices) == set(FuelType)
-    assert prices[FuelType.GASOLINE_95_E5] == 1.479
-    assert prices[FuelType.DIESEL_A] == 1.689
-    assert prices[FuelType.DIESEL_PREMIUM] is None
+    assert prices[FuelType.GASOLINA_95] == 1.479
+    assert prices[FuelType.GASOIL] == 1.689
+    assert prices[FuelType.GASOIL_PREMIUM] is None
 
 
 def test_validator_accepts_native_floats() -> None:

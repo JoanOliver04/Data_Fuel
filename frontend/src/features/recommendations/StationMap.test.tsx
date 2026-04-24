@@ -37,7 +37,7 @@ const mockItem: RecommendationItem = {
   latitude: 39.48,
   longitude: -0.37,
   schedule: "L-D: 24H",
-  fuel_type: "diesel_a",
+  fuel_type: "gasoil",
   price_per_liter: 1.489,
   liters: 40,
   distance_km: 0.5,

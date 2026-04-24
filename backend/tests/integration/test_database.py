@@ -43,7 +43,7 @@ async def test_insert_price_history_with_fk(db: AsyncSession) -> None:
     db.add(
         PriceHistoryORM(
             station_id=1,
-            fuel_type=FuelType.GASOLINE_95_E5,
+            fuel_type=FuelType.GASOLINA_95,
             price=Decimal("1.595"),
             recorded_at=datetime(2026, 4, 23, 12, 0, tzinfo=UTC),
         ),
@@ -53,7 +53,7 @@ async def test_insert_price_history_with_fk(db: AsyncSession) -> None:
     rows = (await db.execute(select(PriceHistoryORM))).scalars().all()
     assert len(rows) == 1
     assert rows[0].station_id == 1
-    assert rows[0].fuel_type == FuelType.GASOLINE_95_E5
+    assert rows[0].fuel_type == FuelType.GASOLINA_95
     assert rows[0].price == Decimal("1.595")
 
 
@@ -65,12 +65,12 @@ async def test_station_relationship_loads_prices(db: AsyncSession) -> None:
         [
             PriceHistoryORM(
                 station_id=1,
-                fuel_type=FuelType.GASOLINE_95_E5,
+                fuel_type=FuelType.GASOLINA_95,
                 price=Decimal("1.595"),
             ),
             PriceHistoryORM(
                 station_id=1,
-                fuel_type=FuelType.DIESEL_A,
+                fuel_type=FuelType.GASOIL,
                 price=Decimal("1.499"),
             ),
         ],
@@ -84,7 +84,7 @@ async def test_station_relationship_loads_prices(db: AsyncSession) -> None:
     ).scalar_one()
     prices = list(await fetched.awaitable_attrs.price_history)
 
-    assert {p.fuel_type for p in prices} == {FuelType.GASOLINE_95_E5, FuelType.DIESEL_A}
+    assert {p.fuel_type for p in prices} == {FuelType.GASOLINA_95, FuelType.GASOIL}
 
 
 async def test_cascade_delete_removes_price_history(db: AsyncSession) -> None:
@@ -94,7 +94,7 @@ async def test_cascade_delete_removes_price_history(db: AsyncSession) -> None:
     db.add(
         PriceHistoryORM(
             station_id=1,
-            fuel_type=FuelType.DIESEL_A,
+            fuel_type=FuelType.GASOIL,
             price=Decimal("1.499"),
         ),
     )

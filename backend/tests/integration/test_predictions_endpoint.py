@@ -35,7 +35,7 @@ def _price_rows(station_id: int, n: int) -> list[PriceHistoryORM]:
     return [
         PriceHistoryORM(
             station_id=station_id,
-            fuel_type="diesel_a",
+            fuel_type="gasoil",
             price=Decimal(str(round(1.489 + (i % 5) * 0.01, 3))),
             recorded_at=base + timedelta(hours=i * 3),
         )
@@ -91,13 +91,13 @@ async def station_insufficient_data(db):
 
 @pytest.mark.asyncio
 async def test_prediction_returns_200(api_client, seeded_station):
-    resp = await api_client.get("/api/v1/predictions/1/diesel_a")
+    resp = await api_client.get("/api/v1/predictions/1/gasoil")
     assert resp.status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_prediction_response_fields(api_client, seeded_station):
-    resp = await api_client.get("/api/v1/predictions/1/diesel_a")
+    resp = await api_client.get("/api/v1/predictions/1/gasoil")
     data = resp.json()
     for field in (
         "station_id", "fuel_type", "current_price",
@@ -109,16 +109,16 @@ async def test_prediction_response_fields(api_client, seeded_station):
 
 @pytest.mark.asyncio
 async def test_prediction_correct_station_and_fuel(api_client, seeded_station):
-    resp = await api_client.get("/api/v1/predictions/1/diesel_a")
+    resp = await api_client.get("/api/v1/predictions/1/gasoil")
     data = resp.json()
     assert data["station_id"] == 1
-    assert data["fuel_type"] == "diesel_a"
+    assert data["fuel_type"] == "gasoil"
     assert data["horizon_hours"] == 48
 
 
 @pytest.mark.asyncio
 async def test_prediction_current_price_matches_station(api_client, seeded_station):
-    resp = await api_client.get("/api/v1/predictions/1/diesel_a")
+    resp = await api_client.get("/api/v1/predictions/1/gasoil")
     data = resp.json()
     assert abs(data["current_price"] - 1.489) < 0.001
 
@@ -128,17 +128,17 @@ async def test_prediction_current_price_matches_station(api_client, seeded_stati
 
 @pytest.mark.asyncio
 async def test_prediction_station_not_found(api_client, engine):
-    resp = await api_client.get("/api/v1/predictions/999/diesel_a")
+    resp = await api_client.get("/api/v1/predictions/999/gasoil")
     assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_prediction_no_price_for_fuel_type(api_client, station_no_price):
-    resp = await api_client.get("/api/v1/predictions/2/diesel_a")
+    resp = await api_client.get("/api/v1/predictions/2/gasoil")
     assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_prediction_insufficient_data(api_client, station_insufficient_data):
-    resp = await api_client.get("/api/v1/predictions/3/diesel_a")
+    resp = await api_client.get("/api/v1/predictions/3/gasoil")
     assert resp.status_code == 404

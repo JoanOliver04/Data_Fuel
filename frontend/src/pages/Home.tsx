@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FuelSelector } from "@/features/fuel-selector/FuelSelector";
 import { HealthBadge } from "@/features/health/HealthBadge";
 import { LocationPicker } from "@/features/location/LocationPicker";
 import { useRecommendations } from "@/features/recommendations/hooks";
@@ -12,11 +13,9 @@ import { RecommendationList } from "@/features/recommendations/RecommendationLis
 import { StationMap } from "@/features/recommendations/StationMap";
 import type { RecommendationParams } from "@/features/recommendations/types";
 import { useSettingsStore } from "@/stores/settings.store";
-import { FUEL_LABELS, type FuelType } from "@/types/fuel";
 
 export function Home() {
-  const { liters, kmCost, preferredFuel, userLat, userLon, theme, setLiters, setKmCost, setPreferredFuel, setLocation, setTheme } =
-    useSettingsStore();
+  const { liters, kmCost, preferredFuel, userLat, userLon, theme, setLiters, setKmCost, setPreferredFuel, setLocation, setTheme } = useSettingsStore();
 
   const [maxDistance, setMaxDistance] = useState<number | undefined>(undefined);
   const [searchParams, setSearchParams] = useState<RecommendationParams | null>(null);
@@ -88,21 +87,11 @@ export function Home() {
                 onChange={(e) => setLiters(Number(e.target.value))}
               />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="fuel">Combustible</Label>
-              <select
-                id="fuel"
-                value={preferredFuel}
-                onChange={(e) => setPreferredFuel(e.target.value as FuelType)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {Object.entries(FUEL_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Combustible</Label>
+            <FuelSelector value={preferredFuel} onChange={setPreferredFuel} className="pt-0.5" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

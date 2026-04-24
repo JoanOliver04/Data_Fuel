@@ -33,7 +33,7 @@ def _price_rows(station_id: int, n: int) -> list[PriceHistoryORM]:
     return [
         PriceHistoryORM(
             station_id=station_id,
-            fuel_type="diesel_a",
+            fuel_type="gasoil",
             price=Decimal(str(round(1.489 + (i % 5) * 0.01, 3))),
             recorded_at=now - timedelta(hours=(n - i) * 6),
         )
@@ -62,7 +62,7 @@ async def empty_station(db: AsyncSession) -> None:
 
 @pytest.mark.asyncio
 async def test_returns_200_with_price_points(api_client: AsyncClient, seeded_station: None) -> None:
-    resp = await api_client.get("/api/v1/stations/200/price-history/diesel_a")
+    resp = await api_client.get("/api/v1/stations/200/price-history/gasoil")
     assert resp.status_code == 200
     body = resp.json()
     assert len(body) == 5
@@ -71,7 +71,7 @@ async def test_returns_200_with_price_points(api_client: AsyncClient, seeded_sta
 
 @pytest.mark.asyncio
 async def test_price_points_sorted_ascending(api_client: AsyncClient, seeded_station: None) -> None:
-    resp = await api_client.get("/api/v1/stations/200/price-history/diesel_a")
+    resp = await api_client.get("/api/v1/stations/200/price-history/gasoil")
     timestamps = [p["recorded_at"] for p in resp.json()]
     assert timestamps == sorted(timestamps)
 
@@ -80,7 +80,7 @@ async def test_price_points_sorted_ascending(api_client: AsyncClient, seeded_sta
 async def test_empty_history_returns_empty_list(
     api_client: AsyncClient, empty_station: None
 ) -> None:
-    resp = await api_client.get("/api/v1/stations/201/price-history/diesel_a")
+    resp = await api_client.get("/api/v1/stations/201/price-history/gasoil")
     assert resp.status_code == 200
     assert resp.json() == []
 
@@ -90,7 +90,7 @@ async def test_empty_history_returns_empty_list(
 
 @pytest.mark.asyncio
 async def test_station_not_found_returns_404(api_client: AsyncClient, engine: object) -> None:
-    resp = await api_client.get("/api/v1/stations/99999/price-history/diesel_a")
+    resp = await api_client.get("/api/v1/stations/99999/price-history/gasoil")
     assert resp.status_code == 404
 
 
@@ -111,17 +111,17 @@ async def test_days_param_filters_old_records(
     db.add(
         PriceHistoryORM(
             station_id=202,
-            fuel_type="diesel_a",
+            fuel_type="gasoil",
             price=Decimal("1.500"),
             recorded_at=now - timedelta(days=60),  # older than default 30-day window
         )
     )
     await db.commit()
 
-    resp = await api_client.get("/api/v1/stations/202/price-history/diesel_a")
+    resp = await api_client.get("/api/v1/stations/202/price-history/gasoil")
     assert resp.status_code == 200
     assert resp.json() == []  # excluded by 30-day default
 
-    resp2 = await api_client.get("/api/v1/stations/202/price-history/diesel_a?days=90")
+    resp2 = await api_client.get("/api/v1/stations/202/price-history/gasoil?days=90")
     assert resp2.status_code == 200
     assert len(resp2.json()) == 1

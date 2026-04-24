@@ -9,14 +9,14 @@ from app.domain.entities import Coordinates, FuelType, Price, Station
 
 
 def test_fuel_type_values() -> None:
-    assert FuelType.GASOLINE_95_E5.value == "gasoline_95_e5"
-    assert FuelType.DIESEL_A.value == "diesel_a"
-    assert FuelType("diesel_premium") is FuelType.DIESEL_PREMIUM
+    assert FuelType.GASOLINA_95.value == "gasolina_95"
+    assert FuelType.GASOIL.value == "gasoil"
+    assert FuelType("gasoil_premium") is FuelType.GASOIL_PREMIUM
 
 
 def test_fuel_type_is_str_enum() -> None:
     """StrEnum members should be usable as plain strings."""
-    assert f"prefix_{FuelType.GASOLINE_98_E5}" == "prefix_gasoline_98_e5"
+    assert f"prefix_{FuelType.GASOLINA_98}" == "prefix_gasolina_98"
 
 
 def test_coordinates_are_frozen() -> None:
@@ -42,9 +42,9 @@ def test_station_defaults_to_empty_prices() -> None:
 
 def test_station_accepts_explicit_prices() -> None:
     prices: dict[FuelType, float | None] = {
-        FuelType.GASOLINE_95_E5: 1.595,
-        FuelType.DIESEL_A: 1.499,
-        FuelType.GASOLINE_98_E5: None,
+        FuelType.GASOLINA_95: 1.595,
+        FuelType.GASOIL: 1.499,
+        FuelType.GASOLINA_98: None,
     }
     station = Station(
         id=42,
@@ -58,14 +58,14 @@ def test_station_accepts_explicit_prices() -> None:
         schedule="",
         prices=prices,
     )
-    assert station.prices[FuelType.GASOLINE_95_E5] == 1.595
-    assert station.prices[FuelType.GASOLINE_98_E5] is None
+    assert station.prices[FuelType.GASOLINA_95] == 1.595
+    assert station.prices[FuelType.GASOLINA_98] is None
 
 
 def test_price_is_immutable() -> None:
     price = Price(
         station_id=1,
-        fuel_type=FuelType.DIESEL_A,
+        fuel_type=FuelType.GASOIL,
         value=1.499,
         recorded_at=datetime(2026, 4, 23, 12, 0, tzinfo=UTC),
     )

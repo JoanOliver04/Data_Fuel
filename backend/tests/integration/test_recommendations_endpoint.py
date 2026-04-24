@@ -49,7 +49,7 @@ async def two_stations(db):
 async def test_recommendations_returns_ranked_list(api_client, two_stations):
     resp = await api_client.get(
         "/api/v1/recommendations",
-        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasoline_95_e5"},
+        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasolina_95"},
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -62,7 +62,7 @@ async def test_recommendations_returns_ranked_list(api_client, two_stations):
 async def test_recommendations_response_fields(api_client, two_stations):
     resp = await api_client.get(
         "/api/v1/recommendations",
-        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "diesel_a"},
+        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasoil"},
     )
     assert resp.status_code == 200
     item = resp.json()[0]
@@ -78,7 +78,7 @@ async def test_recommendations_response_fields(api_client, two_stations):
 async def test_recommendations_limit(api_client, two_stations):
     resp = await api_client.get(
         "/api/v1/recommendations",
-        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasoline_95_e5", "limit": 1},
+        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasolina_95", "limit": 1},
     )
     assert resp.status_code == 200
     assert len(resp.json()) == 1
@@ -91,7 +91,7 @@ async def test_recommendations_max_distance_filter(api_client, two_stations):
         "/api/v1/recommendations",
         params={
             "lat": USER_LAT, "lon": USER_LON,
-            "liters": 40, "fuel_type": "gasoline_95_e5",
+            "liters": 40, "fuel_type": "gasolina_95",
             "max_distance_km": 5,
         },
     )
@@ -108,7 +108,7 @@ async def test_recommendations_custom_km_cost(api_client, two_stations):
         "/api/v1/recommendations",
         params={
             "lat": USER_LAT, "lon": USER_LON,
-            "liters": 40, "fuel_type": "gasoline_95_e5",
+            "liters": 40, "fuel_type": "gasolina_95",
             "km_cost": 0,
         },
     )
@@ -126,7 +126,7 @@ async def test_recommendations_no_matching_fuel(api_client, db, engine):
     await db.commit()
     resp = await api_client.get(
         "/api/v1/recommendations",
-        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasoline_95_e10"},
+        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasolina_95_e10"},
     )
     assert resp.status_code == 200
     assert resp.json() == []
@@ -136,7 +136,7 @@ async def test_recommendations_no_matching_fuel(api_client, db, engine):
 async def test_recommendations_empty_db(api_client, engine):
     resp = await api_client.get(
         "/api/v1/recommendations",
-        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "diesel_a"},
+        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasoil"},
     )
     assert resp.status_code == 200
     assert resp.json() == []

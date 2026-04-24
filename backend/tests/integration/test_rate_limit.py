@@ -34,7 +34,7 @@ async def test_recommendations_rate_limit_returns_429(monkeypatch: pytest.Monkey
         app = create_app()
         transport = ASGITransport(app=app)
 
-        url = "/api/v1/recommendations?lat=39.47&lon=-0.376&liters=40&fuel_type=diesel_a"
+        url = "/api/v1/recommendations?lat=39.47&lon=-0.376&liters=40&fuel_type=gasoil"
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             first = await client.get(url)
             second = await client.get(url)

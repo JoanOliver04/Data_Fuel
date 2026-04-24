@@ -73,11 +73,11 @@ def test_rank_stations_sorts_by_total_cost():
     near = _make_orm(2, 39.471, -0.377, price_gasoline_95_e5=Decimal("1.700"))
 
     # 1 litre: travel cost dominates → near station wins.
-    ranked = rank_stations([far, near], FuelType.GASOLINE_95_E5, USER_LAT, USER_LON, 1, 0.13)
+    ranked = rank_stations([far, near], FuelType.GASOLINA_95, USER_LAT, USER_LON, 1, 0.13)
     assert ranked[0].station_id == near.id
 
     # 300 litres: fuel cost dominates → cheap station wins.
-    ranked = rank_stations([far, near], FuelType.GASOLINE_95_E5, USER_LAT, USER_LON, 300, 0.13)
+    ranked = rank_stations([far, near], FuelType.GASOLINA_95, USER_LAT, USER_LON, 300, 0.13)
     assert ranked[0].station_id == far.id
 
 
@@ -85,7 +85,7 @@ def test_rank_stations_excludes_missing_price():
     no_diesel = _make_orm(1, 39.47, -0.376, price_diesel_a=None)
     has_diesel = _make_orm(2, 39.48, -0.376, price_diesel_a=Decimal("1.489"))
 
-    ranked = rank_stations([no_diesel, has_diesel], FuelType.DIESEL_A, USER_LAT, USER_LON, 40, 0.13)
+    ranked = rank_stations([no_diesel, has_diesel], FuelType.GASOIL, USER_LAT, USER_LON, 40, 0.13)
     assert len(ranked) == 1
     assert ranked[0].station_id == has_diesel.id
 
@@ -95,7 +95,7 @@ def test_rank_stations_max_distance_filter():
     near = _make_orm(2, 39.48, -0.376)
 
     ranked = rank_stations(
-        [far, near], FuelType.GASOLINE_95_E5, USER_LAT, USER_LON, 40, 0.13, max_distance_km=50
+        [far, near], FuelType.GASOLINA_95, USER_LAT, USER_LON, 40, 0.13, max_distance_km=50
     )
     assert len(ranked) == 1
     assert ranked[0].station_id == near.id
@@ -104,20 +104,20 @@ def test_rank_stations_max_distance_filter():
 def test_rank_stations_limit():
     stations = [_make_orm(i, 39.47 + i * 0.01, -0.376) for i in range(20)]
     ranked = rank_stations(
-        stations, FuelType.GASOLINE_95_E5, USER_LAT, USER_LON, 40, 0.13, limit=5
+        stations, FuelType.GASOLINA_95, USER_LAT, USER_LON, 40, 0.13, limit=5
     )
     assert len(ranked) == 5
 
 
 def test_rank_stations_empty_db():
-    assert rank_stations([], FuelType.DIESEL_A, USER_LAT, USER_LON, 40, 0.13) == []
+    assert rank_stations([], FuelType.GASOIL, USER_LAT, USER_LON, 40, 0.13) == []
 
 
 def test_station_cost_formula():
     """Total = fuel_cost + travel_cost exactly."""
     station = _make_orm(1, 39.48, -0.376, price_gasoline_95_e5=Decimal("1.595"))
     ranked = rank_stations(
-        [station], FuelType.GASOLINE_95_E5, USER_LAT, USER_LON, 40.0, 0.13
+        [station], FuelType.GASOLINA_95, USER_LAT, USER_LON, 40.0, 0.13
     )
     sc = ranked[0]
     assert sc.total_cost == sc.fuel_cost + sc.travel_cost
@@ -127,7 +127,7 @@ def test_station_cost_formula():
 def test_zero_km_cost_travel_is_zero():
     station = _make_orm(1, 42.0, 3.0)  # far away
     ranked = rank_stations(
-        [station], FuelType.GASOLINE_95_E5, USER_LAT, USER_LON, 40, km_cost=0.0
+        [station], FuelType.GASOLINA_95, USER_LAT, USER_LON, 40, km_cost=0.0
     )
     assert ranked[0].travel_cost == Decimal("0.000")
     assert ranked[0].total_cost == ranked[0].fuel_cost

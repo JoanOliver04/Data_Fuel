@@ -29,7 +29,7 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       kmCost: DEFAULT_KM_COST,
       liters: DEFAULT_LITERS,
-      preferredFuel: "gasoline_95_e5",
+      preferredFuel: "gasolina_95",
       userLat: null,
       userLon: null,
       favorites: [],
