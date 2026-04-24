@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Moon, Search, Sun } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { useSettingsStore } from "@/stores/settings.store";
 import { FUEL_LABELS, type FuelType } from "@/types/fuel";
 
 export function Home() {
-  const { liters, kmCost, preferredFuel, userLat, userLon, setLiters, setKmCost, setPreferredFuel, setLocation } =
+  const { liters, kmCost, preferredFuel, userLat, userLon, theme, setLiters, setKmCost, setPreferredFuel, setLocation, setTheme } =
     useSettingsStore();
 
   const [maxDistance, setMaxDistance] = useState<number | undefined>(undefined);
@@ -41,12 +41,24 @@ export function Home() {
 
   return (
     <main className="container max-w-2xl space-y-6 py-8">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Data Fuel ⛽</h1>
-        <p className="text-muted-foreground">
-          Encuentra la gasolinera más rentable según precio y distancia.
-        </p>
-        <HealthBadge />
+      <header>
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight">Data Fuel ⛽</h1>
+            <p className="text-muted-foreground">
+              Encuentra la gasolinera más rentable según precio y distancia.
+            </p>
+            <HealthBadge />
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+          >
+            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+        </div>
       </header>
 
       <Card>
