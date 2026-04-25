@@ -1,4 +1,5 @@
 import type { FuelType } from "@/types/fuel";
+import type { ConsumptionMode } from "@/features/vehicle-profile/types";
 
 export interface RecommendationItem {
   station_id: number;
@@ -20,6 +21,8 @@ export interface RecommendationItem {
   total_cost: number;
   driving_distance_km?: number | null;
   driving_duration_min?: number | null;
+  consumption_mode?: ConsumptionMode | null;
+  consumption_l_per_100km?: number | null;
 }
 
 export interface RecommendationParams {

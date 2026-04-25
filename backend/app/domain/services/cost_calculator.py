@@ -4,18 +4,20 @@ V  = liters to refuel
 Pᵢ = price per litre at station i  (€/L)
 Dᵢ = distance to station i (km) — haversine by default, real road distance
      when a `DistanceResult` with `driving_distance_km` is supplied
-K  = vehicle cost per km  (€/km, default 0.13)
+K  = vehicle cost per km (€/km) — fixed (default 0.13) or resolved per
+     station from a vehicle profile and the live fuel price at that station
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING
 
 from app.domain.entities.fuel_type import FuelType
+from app.domain.entities.vehicle_profile import ConsumptionMode
 from app.infrastructure.database.models.station import StationORM
 
 if TYPE_CHECKING:
@@ -46,6 +48,15 @@ class StationCost:
     total_cost: Decimal
     driving_distance_km: float | None = None
     driving_duration_min: float | None = None
+    consumption_mode: ConsumptionMode | None = None
+    consumption_l_per_100km: float | None = None
+
+
+# (distance_km, fuel_price_eur_per_l) -> (km_cost, mode, consumption_used)
+KmCostResolver = Callable[
+    [float, Decimal],
+    tuple[float, ConsumptionMode, float],
+]
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -68,6 +79,7 @@ def rank_stations(
     max_distance_km: float | None = None,
     limit: int = 10,
     distances: Mapping[int, DistanceResult] | None = None,
+    km_cost_resolver: KmCostResolver | None = None,
 ) -> list[StationCost]:
     """Rank stations by total refuelling cost for the given parameters.
 
@@ -77,10 +89,14 @@ def rank_stations(
     When `distances` is provided (keyed by `station.id`), the travel cost uses the
     driving distance from that mapping; otherwise haversine is used. Haversine
     remains the value of `distance_km` so frontends retain the straight-line metric.
+
+    When `km_cost_resolver` is provided, K is computed per-station from the
+    travel distance and the station's live fuel price; the static `km_cost`
+    is then ignored.
     """
     results: list[StationCost] = []
     liters_d = Decimal(str(liters))
-    km_cost_d = Decimal(str(km_cost))
+    fallback_km_cost_d = Decimal(str(km_cost))
 
     for station in stations:
         price = _price_for(station, fuel_type)
@@ -98,9 +114,19 @@ def rank_stations(
         if max_distance_km is not None and cost_dist > max_distance_km:
             continue
 
+        if km_cost_resolver is not None:
+            k_value, mode, consumption = km_cost_resolver(cost_dist, price)
+            station_km_cost = k_value
+            station_km_cost_d = Decimal(str(k_value))
+        else:
+            mode = None
+            consumption = None
+            station_km_cost = km_cost
+            station_km_cost_d = fallback_km_cost_d
+
         dist_d = Decimal(str(round(cost_dist, 3)))
         fuel_cost = (liters_d * price).quantize(_CENT, ROUND_HALF_UP)
-        travel_cost = (dist_d * km_cost_d).quantize(_CENT, ROUND_HALF_UP)
+        travel_cost = (dist_d * station_km_cost_d).quantize(_CENT, ROUND_HALF_UP)
         total_cost = fuel_cost + travel_cost
 
         results.append(
@@ -118,7 +144,7 @@ def rank_stations(
                 price_per_liter=price,
                 liters=liters,
                 distance_km=round(straight_line, 3),
-                km_cost=km_cost,
+                km_cost=station_km_cost,
                 fuel_cost=fuel_cost,
                 travel_cost=travel_cost,
                 total_cost=total_cost,
@@ -132,6 +158,8 @@ def rank_stations(
                     if dist_info is not None and dist_info.driving_duration_min is not None
                     else None
                 ),
+                consumption_mode=mode,
+                consumption_l_per_100km=consumption,
             )
         )
 

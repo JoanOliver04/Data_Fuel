@@ -11,7 +11,7 @@ import { PredictionBadge } from "@/features/predictions/PredictionBadge";
 import { useSettingsStore } from "@/stores/settings.store";
 
 import type { RecommendationItem } from "./types";
-import { formatDrivingSummary } from "./utils";
+import { formatDrivingSummary, formatRealCostTooltip } from "./utils";
 
 interface RecommendationCardProps {
   item: RecommendationItem;
@@ -54,9 +54,7 @@ export function RecommendationCard({ item, rank }: RecommendationCardProps) {
                   </p>
                 </TooltipTrigger>
                 <TooltipContent side="left">
-                  {activeVehicleProfileId !== null
-                    ? `Tu vehículo: ${Number(item.km_cost).toFixed(3)} €/km`
-                    : `Coste por km: ${Number(item.km_cost).toFixed(3)} €/km`}
+                  {formatRealCostTooltip(item, activeVehicleProfileId !== null)}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

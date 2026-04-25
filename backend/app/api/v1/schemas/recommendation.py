@@ -8,6 +8,7 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 from app.domain.entities.fuel_type import FuelType
+from app.domain.entities.vehicle_profile import ConsumptionMode
 from app.domain.services.cost_calculator import StationCost
 
 
@@ -31,6 +32,8 @@ class RecommendationOut(BaseModel):
     total_cost: Decimal
     driving_distance_km: float | None = None
     driving_duration_min: float | None = None
+    consumption_mode: ConsumptionMode | None = None
+    consumption_l_per_100km: float | None = None
 
     @classmethod
     def from_station_cost(cls, sc: StationCost) -> RecommendationOut:

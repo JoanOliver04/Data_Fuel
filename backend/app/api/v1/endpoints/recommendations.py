@@ -1,5 +1,6 @@
 """Recommendations endpoint: cheapest stations ranked by total refuelling cost."""
 
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -9,13 +10,18 @@ from app.api.v1.schemas.recommendation import RecommendationOut
 from app.core.config import get_settings
 from app.core.rate_limit import limiter
 from app.domain.entities.fuel_type import FuelType
-from app.domain.services.cost_calculator import rank_stations
+from app.domain.entities.vehicle_profile import ConsumptionMode
+from app.domain.services.cost_calculator import KmCostResolver, rank_stations
 from app.domain.services.distance_service import (
     DistanceMode,
     DistanceResult,
     DistanceService,
 )
-from app.domain.services.vehicle_profile_service import compute_km_cost
+from app.domain.services.vehicle_profile_service import (
+    ConsumptionProfile,
+    km_cost_for_distance,
+)
+from app.infrastructure.database.models.vehicle_profile import VehicleProfileORM
 from app.infrastructure.database.session import get_async_session
 from app.infrastructure.external.ors import ORSClient
 from app.repositories.station_repository import StationRepository
@@ -59,16 +65,12 @@ async def get_recommendations(
     settings = get_settings()
     station_repo = StationRepository(session)
 
+    profile: VehicleProfileORM | None = None
     if vehicle_profile_id is not None:
         profile = await VehicleProfileRepository(session).get_by_id(vehicle_profile_id)
         if profile is None:
             raise HTTPException(status_code=404, detail="Vehicle profile not found")
-        avg_price = await station_repo.avg_price_for_fuel_type(fuel_type)
-        if avg_price is not None:
-            effective_km_cost = compute_km_cost(profile.fuel_consumption_per_100km, avg_price)
-        else:
-            # Fallback to the profile's reference K when no live prices are available.
-            effective_km_cost = profile.km_cost_per_km
+        effective_km_cost = profile.km_cost_per_km
     elif km_cost is not None:
         effective_km_cost = km_cost
     else:
@@ -85,6 +87,7 @@ async def get_recommendations(
         ]
 
     distances = await _compute_distances(settings, lat, lon, stations)
+    resolver = _build_resolver(profile)
 
     ranked = rank_stations(
         stations=stations,
@@ -96,8 +99,28 @@ async def get_recommendations(
         max_distance_km=max_distance_km,
         limit=limit,
         distances=distances,
+        km_cost_resolver=resolver,
     )
     return [RecommendationOut.from_station_cost(sc) for sc in ranked]
+
+
+def _build_resolver(profile: VehicleProfileORM | None) -> KmCostResolver | None:
+    """Return a per-station K resolver from a vehicle profile, or None."""
+    if profile is None:
+        return None
+    consumption_profile = ConsumptionProfile(
+        urban=profile.fuel_consumption_urban,
+        mixed=profile.fuel_consumption_mixed,
+        highway=profile.fuel_consumption_highway,
+    )
+
+    def resolve(distance_km: float, fuel_price: Decimal) -> tuple[float, ConsumptionMode, float]:
+        price_float = float(fuel_price)
+        k_value, mode = km_cost_for_distance(consumption_profile, distance_km, price_float)
+        consumption_used = consumption_profile.consumption_for(mode)
+        return k_value, mode, consumption_used
+
+    return resolve
 
 
 async def _compute_distances(

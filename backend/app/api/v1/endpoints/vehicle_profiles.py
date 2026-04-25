@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas.vehicle_profile import (
@@ -18,7 +18,11 @@ from app.repositories.vehicle_profile_repository import VehicleProfileRepository
 router = APIRouter(prefix="/vehicle-profiles", tags=["vehicle-profiles"])
 
 
-@router.get("/estimate-km-cost", response_model=KmCostEstimate, summary="Preview €/km from consumption")
+@router.get(
+    "/estimate-km-cost",
+    response_model=KmCostEstimate,
+    summary="Preview €/km from consumption",
+)
 async def estimate_km_cost(
     consumption: Annotated[float, Query(ge=0.0, le=50.0, description="Fuel consumption (L/100km)")],
     fuel_price: Annotated[float, Query(gt=0.0, le=10.0, description="Fuel price (€/L)")],
@@ -38,17 +42,25 @@ async def list_vehicle_profiles(
     return [VehicleProfileOut.model_validate(p) for p in profiles]
 
 
-@router.post("", response_model=VehicleProfileOut, status_code=201, summary="Create vehicle profile")
+@router.post(
+    "",
+    response_model=VehicleProfileOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create vehicle profile",
+)
 async def create_vehicle_profile(
     body: VehicleProfileCreate,
     session: AsyncSession = Depends(get_async_session),
 ) -> VehicleProfileOut:
-    km_cost = compute_km_cost(body.fuel_consumption_per_100km, body.reference_fuel_price)
+    # Reference K stored for display uses the mixed consumption (combined default).
+    km_cost = compute_km_cost(body.fuel_consumption_mixed, body.reference_fuel_price)
     data = {
         "name": body.name,
-        "fuel_consumption_per_100km": body.fuel_consumption_per_100km,
+        "fuel_consumption_urban": body.fuel_consumption_urban,
+        "fuel_consumption_mixed": body.fuel_consumption_mixed,
+        "fuel_consumption_highway": body.fuel_consumption_highway,
         "tank_capacity_litres": body.tank_capacity_litres,
-        "driving_style": body.driving_style,
+        "driving_style": body.driving_style.value,
         "km_cost_per_km": km_cost,
     }
     profile = await VehicleProfileRepository(session).create(data)
@@ -78,18 +90,29 @@ async def update_vehicle_profile(
         raise HTTPException(status_code=404, detail="Vehicle profile not found")
 
     updates: dict = body.model_dump(exclude_none=True, exclude={"reference_fuel_price"})
+    if "driving_style" in updates:
+        updates["driving_style"] = body.driving_style.value if body.driving_style else None
 
-    # Recompute km_cost_per_km when consumption or reference price changes.
-    new_consumption = updates.get("fuel_consumption_per_100km", profile.fuel_consumption_per_100km)
-    if body.fuel_consumption_per_100km is not None or body.reference_fuel_price is not None:
+    # Recompute km_cost_per_km when mixed consumption or reference price changes.
+    consumption_changed = body.fuel_consumption_mixed is not None
+    if consumption_changed or body.reference_fuel_price is not None:
+        new_mixed = (
+            body.fuel_consumption_mixed
+            if body.fuel_consumption_mixed is not None
+            else profile.fuel_consumption_mixed
+        )
         ref_price = body.reference_fuel_price or 1.50
-        updates["km_cost_per_km"] = compute_km_cost(new_consumption, ref_price)
+        updates["km_cost_per_km"] = compute_km_cost(new_mixed, ref_price)
 
     profile = await repo.update(profile, updates)
     return VehicleProfileOut.model_validate(profile)
 
 
-@router.delete("/{profile_id}", status_code=204, summary="Delete vehicle profile")
+@router.delete(
+    "/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete vehicle profile",
+)
 async def delete_vehicle_profile(
     profile_id: int,
     session: AsyncSession = Depends(get_async_session),

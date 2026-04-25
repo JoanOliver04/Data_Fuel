@@ -13,10 +13,13 @@ import {
   useVehicleProfiles,
 } from "@/features/vehicle-profile/hooks";
 import type { VehicleProfile, VehicleProfileCreate } from "@/features/vehicle-profile/types";
+import { ApiError } from "@/lib/api-client";
 import { useSettingsStore } from "@/stores/settings.store";
+import { useToastStore } from "@/stores/toast.store";
 
 export function Settings() {
   const { activeVehicleProfileId, setActiveVehicleProfileId } = useSettingsStore();
+  const showToast = useToastStore((s) => s.show);
   const { data: profiles, isLoading } = useVehicleProfiles();
   const createMutation = useCreateVehicleProfile();
   const updateMutation = useUpdateVehicleProfile();
@@ -25,18 +28,28 @@ export function Settings() {
   const [showForm, setShowForm] = useState(false);
   const [editingProfile, setEditingProfile] = useState<VehicleProfile | null>(null);
 
+  function handleSaveError(error: unknown) {
+    const message =
+      error instanceof ApiError
+        ? `No se pudo guardar el perfil (${error.status})`
+        : "No se pudo guardar el perfil";
+    showToast(message, "error");
+  }
+
   function handleSave(data: VehicleProfileCreate) {
     if (editingProfile) {
       updateMutation.mutate(
         { id: editingProfile.id, data },
         {
           onSuccess: (updated) => {
-            if (activeVehicleProfileId === editingProfile.id) {
-              setActiveVehicleProfileId(updated.id);
-            }
+            // Always activate the just-saved profile so the user immediately
+            // sees its costs reflected in the search results.
+            setActiveVehicleProfileId(updated.id);
             setEditingProfile(null);
             setShowForm(false);
+            showToast(`Perfil "${updated.name}" guardado`, "success");
           },
+          onError: handleSaveError,
         },
       );
     } else {
@@ -44,7 +57,9 @@ export function Settings() {
         onSuccess: (created) => {
           setActiveVehicleProfileId(created.id);
           setShowForm(false);
+          showToast(`Perfil "${created.name}" creado`, "success");
         },
+        onError: handleSaveError,
       });
     }
   }
@@ -138,10 +153,8 @@ export function Settings() {
                       <div>
                         <p className="font-medium">{profile.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {profile.fuel_consumption_per_100km === 0
-                            ? "Eléctrico"
-                            : `${profile.fuel_consumption_per_100km} L/100km`}{" "}
-                          · {profile.km_cost_per_km.toFixed(3)} €/km ·{" "}
+                          Mixto {profile.fuel_consumption_mixed} L/100km ·{" "}
+                          {profile.km_cost_per_km.toFixed(3)} €/km ·{" "}
                           {profile.tank_capacity_litres} L
                         </p>
                       </div>

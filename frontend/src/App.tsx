@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 import { Providers } from "@/app/providers";
 import { AppRoutes } from "@/app/router";
+import { Toaster } from "@/components/ui/toaster";
 import { useSettingsStore } from "@/stores/settings.store";
 
 function ThemeSync() {
@@ -17,6 +18,7 @@ export function App() {
     <Providers>
       <ThemeSync />
       <AppRoutes />
+      <Toaster />
     </Providers>
   );
 }
