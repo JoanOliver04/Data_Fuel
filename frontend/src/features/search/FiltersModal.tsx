@@ -21,7 +21,7 @@ export function FiltersModal({ open, onOpenChange, allBrands }: FiltersModalProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="z-[1000]">
         <DialogHeader>
           <DialogTitle>Filtros avanzados</DialogTitle>
         </DialogHeader>
