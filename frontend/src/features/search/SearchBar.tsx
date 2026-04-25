@@ -66,12 +66,10 @@ export function SearchBar({ isSearching }: SearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Sync label → input when label changes externally
   useEffect(() => {
     setInputValue(locationLabel);
   }, [locationLabel]);
 
-  // On mount: if coords exist but no label, reverse geocode
   useEffect(() => {
     if (userLat !== null && userLon !== null && !locationLabel) {
       reverseGeocode(userLat, userLon).then(setLocationLabel);
@@ -79,7 +77,6 @@ export function SearchBar({ isSearching }: SearchBarProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function onOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -172,19 +169,19 @@ export function SearchBar({ isSearching }: SearchBarProps) {
     <div ref={containerRef} className="relative w-full">
       <div
         className={cn(
-          "flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2.5 shadow-sm",
-          "transition-shadow duration-150",
-          "focus-within:shadow-md focus-within:ring-2 focus-within:ring-ring/40",
+          "flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5",
+          "shadow-sm transition-all duration-200",
+          "focus-within:border-primary/50 focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.12),0_1px_3px_0_rgb(0_0_0/0.08)]",
         )}
       >
-        {/* GPS detect button */}
+        {/* GPS button */}
         <button
           type="button"
           onClick={handleDetect}
           disabled={geoLoading}
           aria-label="Detectar mi ubicación"
           className={cn(
-            "flex-shrink-0 transition-colors duration-150",
+            "shrink-0 transition-colors duration-150",
             geoLoading ? "text-primary" : "text-muted-foreground hover:text-primary",
           )}
         >
@@ -209,18 +206,18 @@ export function SearchBar({ isSearching }: SearchBarProps) {
           aria-expanded={showDropdown}
           aria-activedescendant={highlightedIdx >= 0 ? `suggestion-${highlightedIdx}` : undefined}
           role="combobox"
-          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none placeholder:font-normal placeholder:text-muted-foreground"
         />
 
-        {/* Right side: search spinner or clear */}
+        {/* Right indicator */}
         {busy && !geoLoading ? (
-          <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-muted-foreground" />
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
         ) : hasValue && !geoLoading ? (
           <button
             type="button"
             onClick={handleClear}
             aria-label="Limpiar búsqueda"
-            className="flex-shrink-0 rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+            className="shrink-0 rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -232,7 +229,7 @@ export function SearchBar({ isSearching }: SearchBarProps) {
         <ul
           role="listbox"
           aria-label="Sugerencias de ubicación"
-          className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl border border-border bg-background shadow-lg"
+          className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl border border-border bg-card shadow-lg shadow-black/5 dark:shadow-black/30"
         >
           {suggestions.map((s, i) => {
             const parts = s.display_name.split(",");
@@ -251,10 +248,10 @@ export function SearchBar({ isSearching }: SearchBarProps) {
                 onMouseEnter={() => setHighlightedIdx(i)}
                 className={cn(
                   "flex cursor-pointer items-start gap-3 px-4 py-2.5 text-sm transition-colors",
-                  i === highlightedIdx ? "bg-accent" : "hover:bg-accent/50",
+                  i === highlightedIdx ? "bg-accent" : "hover:bg-accent/60",
                 )}
               >
-                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
                   <div className="truncate font-medium">{primary}</div>
                   {secondary && (

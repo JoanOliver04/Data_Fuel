@@ -16,6 +16,7 @@ import type { VehicleProfile, VehicleProfileCreate } from "@/features/vehicle-pr
 import { ApiError } from "@/lib/api-client";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useToastStore } from "@/stores/toast.store";
+import { cn } from "@/lib/utils";
 
 export function Settings() {
   const { activeVehicleProfileId, setActiveVehicleProfileId } = useSettingsStore();
@@ -42,8 +43,6 @@ export function Settings() {
         { id: editingProfile.id, data },
         {
           onSuccess: (updated) => {
-            // Always activate the just-saved profile so the user immediately
-            // sees its costs reflected in the search results.
             setActiveVehicleProfileId(updated.id);
             setEditingProfile(null);
             setShowForm(false);
@@ -87,124 +86,158 @@ export function Settings() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
+      {/* Header */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
           <Link to="/" aria-label="Volver">
-            <Button variant="ghost" size="icon">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+            >
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-lg font-semibold">Ajustes</h1>
+          <h1 className="text-lg font-extrabold tracking-tight">Ajustes</h1>
         </div>
       </header>
 
       <main className="mx-auto max-w-lg space-y-6 px-4 py-6">
-        {/* ── Mi Vehículo ────────────────────────────────────────────────── */}
+        {/* ── Mi Vehículo ─────────────────────────────────────────────────── */}
         <section>
+          {/* Section header */}
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 font-semibold">
-              <Car className="h-4 w-4" />
-              Mi Vehículo
-            </h2>
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <Car className="h-4 w-4 text-primary" />
+              </div>
+              <h2 className="font-semibold">Mi Vehículo</h2>
+            </div>
             {!showForm && (
-              <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowForm(true)}
+                className="h-8 rounded-lg text-xs font-semibold"
+              >
                 + Nuevo perfil
               </Button>
             )}
           </div>
 
-          {/* Profile list */}
+          {/* Loading */}
           {isLoading && (
-            <p className="text-sm text-muted-foreground">Cargando perfiles…</p>
-          )}
-
-          {profiles && profiles.length > 0 && !showForm && (
             <div className="space-y-2">
-              {profiles.map((profile) => (
-                <Card
-                  key={profile.id}
-                  className={`transition-colors ${
-                    activeVehicleProfileId === profile.id
-                      ? "border-primary ring-1 ring-primary"
-                      : "border-border"
-                  }`}
-                >
-                  <CardContent className="flex items-center justify-between p-3">
-                    <button
-                      type="button"
-                      className="flex flex-1 items-start gap-3 text-left"
-                      onClick={() =>
-                        setActiveVehicleProfileId(
-                          activeVehicleProfileId === profile.id ? null : profile.id,
-                        )
-                      }
-                    >
-                      <div
-                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                          activeVehicleProfileId === profile.id
-                            ? "border-primary bg-primary"
-                            : "border-muted-foreground"
-                        }`}
-                      >
-                        {activeVehicleProfileId === profile.id && (
-                          <Check className="h-3 w-3 text-primary-foreground" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">{profile.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Mixto {profile.fuel_consumption_mixed} L/100km ·{" "}
-                          {profile.km_cost_per_km.toFixed(3)} €/km ·{" "}
-                          {profile.tank_capacity_litres} L
-                        </p>
-                      </div>
-                    </button>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        aria-label="Editar perfil"
-                        onClick={() => handleEdit(profile)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        aria-label="Eliminar perfil"
-                        onClick={() => handleDelete(profile.id)}
-                        disabled={isMutating}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+              {[1, 2].map((i) => (
+                <div key={i} className="h-20 animate-pulse rounded-xl bg-muted" />
               ))}
             </div>
           )}
 
+          {/* Profile list */}
+          {profiles && profiles.length > 0 && !showForm && (
+            <div className="space-y-2">
+              {profiles.map((profile) => {
+                const isActive = activeVehicleProfileId === profile.id;
+                return (
+                  <Card
+                    key={profile.id}
+                    className={cn(
+                      "transition-all duration-150",
+                      isActive
+                        ? "border-primary/50 bg-primary/5 shadow-sm ring-2 ring-primary/15"
+                        : "border-border hover:border-primary/30 hover:shadow-sm",
+                    )}
+                  >
+                    <CardContent className="flex items-center justify-between p-3">
+                      <button
+                        type="button"
+                        className="flex flex-1 items-start gap-3 text-left"
+                        onClick={() =>
+                          setActiveVehicleProfileId(isActive ? null : profile.id)
+                        }
+                      >
+                        {/* Radio circle */}
+                        <div
+                          className={cn(
+                            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all",
+                            isActive
+                              ? "border-primary bg-primary"
+                              : "border-muted-foreground/40",
+                          )}
+                        >
+                          {isActive && <Check className="h-3 w-3 text-primary-foreground" />}
+                        </div>
+
+                        {/* Profile info */}
+                        <div>
+                          <p className={cn("font-semibold", isActive && "text-primary")}>
+                            {profile.name}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {profile.fuel_consumption_mixed} L/100km
+                            <span className="mx-1.5 text-border">·</span>
+                            {profile.km_cost_per_km.toFixed(3)} €/km
+                            <span className="mx-1.5 text-border">·</span>
+                            {profile.tank_capacity_litres} L
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-0.5">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                          aria-label="Editar perfil"
+                          onClick={() => handleEdit(profile)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive"
+                          aria-label="Eliminar perfil"
+                          onClick={() => handleDelete(profile.id)}
+                          disabled={isMutating}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Empty state */}
           {profiles && profiles.length === 0 && !showForm && (
             <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
-                <Car className="h-8 w-8 text-muted-foreground" />
-                <p className="text-sm font-medium">Sin perfiles de vehículo</p>
-                <p className="text-xs text-muted-foreground">
-                  Crea uno para personalizar el Coste Real.
-                </p>
-                <Button size="sm" className="mt-2" onClick={() => setShowForm(true)}>
+              <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+                  <Car className="h-7 w-7 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-semibold">Sin perfiles de vehículo</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Crea uno para personalizar el Coste Real.
+                  </p>
+                </div>
+                <Button size="sm" className="mt-1 rounded-lg" onClick={() => setShowForm(true)}>
                   Crear perfil
                 </Button>
               </CardContent>
             </Card>
           )}
 
+          {/* Form */}
           {showForm && (
             <Card>
               <CardContent className="p-4">
-                <h3 className="mb-4 font-medium">
+                <h3 className="mb-4 font-semibold">
                   {editingProfile ? `Editar: ${editingProfile.name}` : "Nuevo perfil"}
                 </h3>
                 <VehicleProfileForm

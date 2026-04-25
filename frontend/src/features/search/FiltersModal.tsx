@@ -23,15 +23,15 @@ export function FiltersModal({ open, onOpenChange, allBrands }: FiltersModalProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Filtros ⚙️</DialogTitle>
+          <DialogTitle>Filtros avanzados</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           {/* Open now */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium">Abierto ahora</p>
-              <p className="text-xs text-muted-foreground">Solo gasolineras 24h</p>
+              <p className="text-sm font-semibold">Abierto ahora</p>
+              <p className="text-xs text-muted-foreground">Solo gasolineras 24 h</p>
             </div>
             <button
               type="button"
@@ -39,7 +39,7 @@ export function FiltersModal({ open, onOpenChange, allBrands }: FiltersModalProp
               aria-checked={filterOpenNow}
               onClick={() => setFilterOpenNow(!filterOpenNow)}
               className={cn(
-                "relative h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200",
+                "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 filterOpenNow ? "bg-primary" : "bg-muted",
               )}
@@ -55,20 +55,20 @@ export function FiltersModal({ open, onOpenChange, allBrands }: FiltersModalProp
 
           {/* Brands */}
           {allBrands.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Marcas</p>
+                <p className="text-sm font-semibold">Marcas</p>
                 {filterBrands.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setFilterBrands([])}
-                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    className="text-xs font-medium text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
                   >
                     Limpiar
                   </button>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {allBrands.map((brand) => {
                   const selected = filterBrands.includes(brand);
                   return (
@@ -77,9 +77,9 @@ export function FiltersModal({ open, onOpenChange, allBrands }: FiltersModalProp
                       type="button"
                       onClick={() => toggleBrand(brand)}
                       className={cn(
-                        "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150",
+                        "rounded-full border px-3 py-1 text-xs font-semibold transition-all duration-150",
                         selected
-                          ? "border-primary bg-primary/10 text-primary scale-105"
+                          ? "border-primary bg-primary/10 text-primary"
                           : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
                       )}
                     >
@@ -91,14 +91,14 @@ export function FiltersModal({ open, onOpenChange, allBrands }: FiltersModalProp
             </div>
           )}
 
-          {/* Advanced: liters + km cost */}
-          <div className="space-y-3 border-t border-border pt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {/* Advanced options */}
+          <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Opciones avanzadas
             </p>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label htmlFor="modal-liters" className="text-xs font-medium">
+              <div className="space-y-1.5">
+                <label htmlFor="modal-liters" className="text-xs font-semibold">
                   Litros a repostar
                 </label>
                 <input
@@ -110,13 +110,13 @@ export function FiltersModal({ open, onOpenChange, allBrands }: FiltersModalProp
                   value={liters}
                   onChange={(e) => setLiters(Number(e.target.value))}
                   className={cn(
-                    "w-full rounded-xl border border-input bg-background px-3 py-2 text-sm",
+                    "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium",
                     "focus:outline-none focus:ring-2 focus:ring-ring/50",
                   )}
                 />
               </div>
-              <div className="space-y-1">
-                <label htmlFor="modal-kmcost" className="text-xs font-medium">
+              <div className="space-y-1.5">
+                <label htmlFor="modal-kmcost" className="text-xs font-semibold">
                   Coste/km (€)
                 </label>
                 <input
@@ -128,7 +128,7 @@ export function FiltersModal({ open, onOpenChange, allBrands }: FiltersModalProp
                   value={kmCost}
                   onChange={(e) => setKmCost(Number(e.target.value))}
                   className={cn(
-                    "w-full rounded-xl border border-input bg-background px-3 py-2 text-sm",
+                    "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium",
                     "focus:outline-none focus:ring-2 focus:ring-ring/50",
                   )}
                 />
@@ -137,11 +137,11 @@ export function FiltersModal({ open, onOpenChange, allBrands }: FiltersModalProp
           </div>
         </div>
 
-        <div className="flex justify-end pt-2">
+        <div className="flex justify-end pt-1">
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Aplicar
           </button>

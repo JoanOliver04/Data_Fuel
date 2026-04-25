@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 import type { DrivingStyle, VehicleProfile, VehicleProfileCreate } from "./types";
 
@@ -22,9 +23,6 @@ const DRIVING_STYLE_OPTIONS: { value: DrivingStyle; label: string; icon: React.R
   { value: "highway", label: "Carretera", icon: <Car className="h-4 w-4" /> },
 ];
 
-// Backend validation: 1.0–25.0 L/100km, tank 10–200 L. Sliders use the
-// task-specified narrower ranges so the UI guides the user toward sensible
-// values; backend enforces the hard limits.
 const URBAN_MIN = 3;
 const URBAN_MAX = 20;
 const MIXED_MIN = 3;
@@ -78,7 +76,7 @@ export function VehicleProfileForm({ initial, onSave, onCancel, isSaving }: Vehi
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Name */}
+      {/* Vehicle name */}
       <div className="space-y-1.5">
         <Label htmlFor="vp-name">Nombre del vehículo</Label>
         <Input
@@ -88,45 +86,49 @@ export function VehicleProfileForm({ initial, onSave, onCancel, isSaving }: Vehi
           placeholder="Ej: Mi Coche"
           required
           maxLength={120}
+          className="rounded-lg"
         />
       </div>
 
-      {/* Urban consumption */}
-      <ConsumptionSlider
-        id="vp-cons-urban"
-        label="Consumo urbano"
-        helper="Aplicado para gasolineras a menos de 5 km"
-        value={urban}
-        min={URBAN_MIN}
-        max={URBAN_MAX}
-        onChange={setUrban}
-      />
-
-      {/* Mixed consumption */}
-      <ConsumptionSlider
-        id="vp-cons-mixed"
-        label="Combinado (por defecto)"
-        helper="Aplicado para gasolineras entre 5 y 20 km"
-        value={mixed}
-        min={MIXED_MIN}
-        max={MIXED_MAX}
-        onChange={setMixed}
-      />
-
-      {/* Highway consumption */}
-      <ConsumptionSlider
-        id="vp-cons-highway"
-        label="Consumo carretera"
-        helper="Aplicado para gasolineras a más de 20 km"
-        value={highway}
-        min={HIGHWAY_MIN}
-        max={HIGHWAY_MAX}
-        onChange={setHighway}
-      />
+      {/* Consumption sliders */}
+      <div className="space-y-4 rounded-xl border bg-muted/30 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Consumo (L/100km)
+        </p>
+        <ConsumptionSlider
+          id="vp-cons-urban"
+          label="Consumo urbano"
+          helper="Para gasolineras a menos de 5 km"
+          value={urban}
+          min={URBAN_MIN}
+          max={URBAN_MAX}
+          onChange={setUrban}
+        />
+        <ConsumptionSlider
+          id="vp-cons-mixed"
+          label="Combinado (por defecto)"
+          helper="Para gasolineras entre 5 y 20 km"
+          value={mixed}
+          min={MIXED_MIN}
+          max={MIXED_MAX}
+          onChange={setMixed}
+        />
+        <ConsumptionSlider
+          id="vp-cons-highway"
+          label="Consumo carretera"
+          helper="Para gasolineras a más de 20 km"
+          value={highway}
+          min={HIGHWAY_MIN}
+          max={HIGHWAY_MAX}
+          onChange={setHighway}
+        />
+      </div>
 
       {/* Tank capacity */}
       <div className="space-y-1.5">
-        <Label htmlFor="vp-tank">Depósito ({tankCapacity} L)</Label>
+        <Label htmlFor="vp-tank">
+          Depósito — <span className="font-semibold">{tankCapacity} L</span>
+        </Label>
         <input
           id="vp-tank"
           type="range"
@@ -152,11 +154,12 @@ export function VehicleProfileForm({ initial, onSave, onCancel, isSaving }: Vehi
               key={opt.value}
               type="button"
               onClick={() => setDrivingStyle(opt.value)}
-              className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-xs font-medium transition-colors ${
+              className={cn(
+                "flex flex-col items-center gap-1.5 rounded-xl border p-3 text-xs font-semibold transition-all duration-150",
                 drivingStyle === opt.value
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background hover:bg-muted"
-              }`}
+                  ? "border-primary bg-primary/10 text-primary shadow-sm"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/30 hover:bg-muted/50",
+              )}
             >
               {opt.icon}
               {opt.label}
@@ -165,7 +168,7 @@ export function VehicleProfileForm({ initial, onSave, onCancel, isSaving }: Vehi
         </div>
       </div>
 
-      {/* Reference fuel price for preview */}
+      {/* Reference fuel price */}
       <div className="space-y-1.5">
         <Label htmlFor="vp-ref-price">Precio referencia (€/L)</Label>
         <Input
@@ -176,32 +179,58 @@ export function VehicleProfileForm({ initial, onSave, onCancel, isSaving }: Vehi
           step={0.01}
           value={refFuelPrice}
           onChange={(e) => setRefFuelPrice(Number(e.target.value))}
+          className="rounded-lg"
         />
         <p className="text-xs text-muted-foreground">
-          Usado para calcular el coste por km. No se guarda.
+          Solo para la previsualización. No se guarda.
         </p>
       </div>
 
-      {/* Live preview — three estimated costs */}
-      <Card className="border-primary/30 bg-primary/5">
+      {/* Live cost preview — 3-column grid */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent">
         <CardContent className="p-4">
-          <p className="text-xs font-medium text-muted-foreground">Coste estimado por km</p>
-          <p className="mt-1 text-sm font-semibold text-primary">
-            Urban km cost: {urbanKmCost.toFixed(2)} €/km · Mixed: {mixedKmCost.toFixed(2)} €/km ·
-            Highway: {highwayKmCost.toFixed(2)} €/km
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Coste estimado por km
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Calculado con {refFuelPrice.toFixed(2)} €/L de referencia.
+          <div className="grid grid-cols-3 divide-x divide-primary/20">
+            <div className="pr-3 text-center">
+              <p className="text-[20px] font-extrabold tabular-nums text-primary">
+                {urbanKmCost.toFixed(3)}
+              </p>
+              <p className="text-[11px] font-medium text-muted-foreground">Urbano €/km</p>
+            </div>
+            <div className="px-3 text-center">
+              <p className="text-[20px] font-extrabold tabular-nums text-primary">
+                {mixedKmCost.toFixed(3)}
+              </p>
+              <p className="text-[11px] font-medium text-muted-foreground">Mixto €/km</p>
+            </div>
+            <div className="pl-3 text-center">
+              <p className="text-[20px] font-extrabold tabular-nums text-primary">
+                {highwayKmCost.toFixed(3)}
+              </p>
+              <p className="text-[11px] font-medium text-muted-foreground">Carretera €/km</p>
+            </div>
+          </div>
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            Ref: {refFuelPrice.toFixed(2)} €/L
           </p>
         </CardContent>
       </Card>
 
+      {/* Actions */}
       <div className="flex gap-2 pt-1">
-        <Button type="submit" disabled={isSaving} className="flex-1">
+        <Button type="submit" disabled={isSaving} className="flex-1 rounded-lg font-semibold">
           {isSaving ? "Guardando…" : "Guardar perfil"}
         </Button>
         {onCancel && (
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={isSaving}
+            className="rounded-lg"
+          >
             Cancelar
           </Button>
         )}
@@ -209,6 +238,8 @@ export function VehicleProfileForm({ initial, onSave, onCancel, isSaving }: Vehi
     </form>
   );
 }
+
+// ── ConsumptionSlider ─────────────────────────────────────────────────────────
 
 interface ConsumptionSliderProps {
   id: string;
@@ -223,9 +254,14 @@ interface ConsumptionSliderProps {
 function ConsumptionSlider({ id, label, helper, value, min, max, onChange }: ConsumptionSliderProps) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id}>
-        {label} ({value.toFixed(1)} L/100km)
-      </Label>
+      <div className="flex items-baseline justify-between">
+        <Label htmlFor={id} className="text-xs font-medium">
+          {label}
+        </Label>
+        <span className="text-xs font-semibold text-primary tabular-nums">
+          {value.toFixed(1)} L/100km
+        </span>
+      </div>
       <input
         id={id}
         type="range"
@@ -236,11 +272,11 @@ function ConsumptionSlider({ id, label, helper, value, min, max, onChange }: Con
         onChange={(e) => onChange(Number(e.target.value))}
         className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
       />
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>{min} L/100km</span>
-        <span>{max} L/100km</span>
+      <div className="flex justify-between text-[10px] text-muted-foreground/70">
+        <span>{min} L</span>
+        <span className="text-center text-[10px] text-muted-foreground">{helper}</span>
+        <span>{max} L</span>
       </div>
-      <p className="text-xs text-muted-foreground">{helper}</p>
     </div>
   );
 }

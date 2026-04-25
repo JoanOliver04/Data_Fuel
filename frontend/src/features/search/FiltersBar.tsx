@@ -1,4 +1,4 @@
-import { Settings2 } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -41,25 +41,25 @@ export function FiltersBar({ allBrands }: FiltersBarProps) {
         className="flex items-center gap-2 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none" }}
       >
-        {/* Fuel selector (compact) */}
-        <div className="flex flex-shrink-0 items-center rounded-xl bg-muted/60 px-1.5 py-1">
+        {/* Fuel selector */}
+        <div className="flex shrink-0 items-center rounded-xl bg-muted/70 px-1.5 py-1">
           <FuelSelector value={preferredFuel} onChange={setPreferredFuel} compact />
         </div>
 
-        <div className="h-5 w-px flex-shrink-0 bg-border" />
+        <div className="h-4 w-px shrink-0 bg-border/60" />
 
         {/* Radius pills */}
-        <div className="flex flex-shrink-0 gap-1">
+        <div className="flex shrink-0 gap-1">
           {RADIUS_OPTIONS.map((opt) => (
             <button
               key={String(opt.value)}
               type="button"
               onClick={() => setRadius(opt.value)}
               className={cn(
-                "rounded-xl px-3 py-1.5 text-xs font-medium transition-all duration-150",
+                "rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-150",
                 radius === opt.value
-                  ? "bg-primary text-primary-foreground shadow-sm scale-105"
-                  : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               {opt.label}
@@ -67,20 +67,20 @@ export function FiltersBar({ allBrands }: FiltersBarProps) {
           ))}
         </div>
 
-        <div className="h-5 w-px flex-shrink-0 bg-border" />
+        <div className="h-4 w-px shrink-0 bg-border/60" />
 
         {/* Sort pills */}
-        <div className="flex flex-shrink-0 gap-1">
+        <div className="flex shrink-0 gap-1">
           {SORT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               type="button"
               onClick={() => setSortBy(opt.value)}
               className={cn(
-                "rounded-xl px-3 py-1.5 text-xs font-medium transition-all duration-150",
+                "rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-150",
                 sortBy === opt.value
-                  ? "bg-primary text-primary-foreground shadow-sm scale-105"
-                  : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               {opt.label}
@@ -88,23 +88,23 @@ export function FiltersBar({ allBrands }: FiltersBarProps) {
           ))}
         </div>
 
-        <div className="h-5 w-px flex-shrink-0 bg-border" />
+        <div className="h-4 w-px shrink-0 bg-border/60" />
 
-        {/* Filters button */}
+        {/* Advanced filters */}
         <button
           type="button"
           onClick={() => setModalOpen(true)}
           className={cn(
-            "flex flex-shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-all duration-150",
+            "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-150",
             activeFilterCount > 0
               ? "bg-primary text-primary-foreground shadow-sm"
-              : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
-          <Settings2 className="h-3.5 w-3.5" />
+          <SlidersHorizontal className="h-3.5 w-3.5" />
           Filtros
           {activeFilterCount > 0 && (
-            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/25 text-[10px] font-bold">
               {activeFilterCount}
             </span>
           )}
