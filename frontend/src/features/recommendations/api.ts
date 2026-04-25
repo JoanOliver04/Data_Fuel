@@ -15,12 +15,21 @@ const NUMERIC_FIELDS = [
   "total_cost",
 ] as const satisfies readonly (keyof RecommendationItem)[];
 
+const OPTIONAL_NUMERIC_FIELDS = [
+  "driving_distance_km",
+  "driving_duration_min",
+] as const satisfies readonly (keyof RecommendationItem)[];
+
 function normalize(item: RecommendationItem): RecommendationItem {
-  const out = { ...item };
+  const out = { ...item } as Record<string, unknown>;
   for (const key of NUMERIC_FIELDS) {
-    (out as Record<string, unknown>)[key] = Number(item[key]);
+    out[key] = Number(item[key]);
   }
-  return out;
+  for (const key of OPTIONAL_NUMERIC_FIELDS) {
+    const raw = item[key];
+    out[key] = raw === null || raw === undefined ? raw : Number(raw);
+  }
+  return out as unknown as RecommendationItem;
 }
 
 export async function fetchRecommendations(

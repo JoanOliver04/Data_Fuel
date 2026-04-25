@@ -10,6 +10,7 @@ from app.domain.services.cost_calculator import (
     haversine_km,
     rank_stations,
 )
+from app.domain.services.distance_service import DistanceResult
 from app.infrastructure.database.models.station import StationORM
 
 # ── haversine_km ──────────────────────────────────────────────────────────
@@ -131,3 +132,60 @@ def test_zero_km_cost_travel_is_zero():
     )
     assert ranked[0].travel_cost == Decimal("0.000")
     assert ranked[0].total_cost == ranked[0].fuel_cost
+
+
+# ── rank_stations with precomputed driving distances ────────────────────
+
+
+def test_rank_stations_uses_driving_distance_when_provided():
+    station = _make_orm(1, 39.48, -0.376, price_gasoline_95_e5=Decimal("1.500"))
+    distances = {
+        1: DistanceResult(
+            distance_km=1.0,
+            driving_distance_km=5.0,
+            driving_duration_min=12.0,
+        ),
+    }
+
+    ranked = rank_stations(
+        [station],
+        FuelType.GASOLINA_95,
+        USER_LAT,
+        USER_LON,
+        liters=40,
+        km_cost=0.13,
+        distances=distances,
+    )
+
+    sc = ranked[0]
+    assert sc.driving_distance_km == 5.0
+    assert sc.driving_duration_min == 12.0
+    # distance_km stays haversine (straight-line) even in driving mode
+    assert sc.distance_km < 5.0
+    # travel_cost computed from driving distance (5.0 km * 0.13 €/km = 0.650)
+    assert sc.travel_cost == Decimal("0.650")
+
+
+def test_rank_stations_driving_distance_applies_max_filter():
+    near = _make_orm(1, 39.48, -0.376, price_gasoline_95_e5=Decimal("1.500"))
+    # Haversine ~1 km, but driving is 30 km; max_distance_km=10 should exclude it.
+    distances = {
+        1: DistanceResult(
+            distance_km=1.0,
+            driving_distance_km=30.0,
+            driving_duration_min=45.0,
+        ),
+    }
+
+    ranked = rank_stations(
+        [near],
+        FuelType.GASOLINA_95,
+        USER_LAT,
+        USER_LON,
+        liters=40,
+        km_cost=0.13,
+        max_distance_km=10.0,
+        distances=distances,
+    )
+
+    assert ranked == []

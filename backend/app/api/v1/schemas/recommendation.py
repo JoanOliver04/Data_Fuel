@@ -29,6 +29,8 @@ class RecommendationOut(BaseModel):
     fuel_cost: Decimal
     travel_cost: Decimal
     total_cost: Decimal
+    driving_distance_km: float | None = None
+    driving_duration_min: float | None = None
 
     @classmethod
     def from_station_cost(cls, sc: StationCost) -> RecommendationOut:

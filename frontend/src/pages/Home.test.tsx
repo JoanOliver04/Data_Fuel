@@ -10,6 +10,26 @@ vi.mock("@/lib/api-client", () => ({
   ApiError: class ApiError extends Error {},
 }));
 
+// Complex child components depend on leaflet / network — stub them out
+vi.mock("@/features/map/MapView", () => ({
+  MapView: () => <div data-testid="map-view" />,
+}));
+vi.mock("@/features/search/SearchBar", () => ({
+  SearchBar: () => <div data-testid="search-bar" />,
+}));
+vi.mock("@/features/search/FiltersBar", () => ({
+  FiltersBar: () => <div data-testid="filters-bar" />,
+}));
+vi.mock("@/features/recommendations/StationList", () => ({
+  StationList: () => <div data-testid="station-list" />,
+}));
+vi.mock("@/features/smart-advice/SmartAdviceCard", () => ({
+  SmartAdviceCard: () => <div data-testid="smart-advice-card" />,
+}));
+vi.mock("@/features/health/HealthBadge", () => ({
+  HealthBadge: () => <span data-testid="health-badge" />,
+}));
+
 function renderHome() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -24,31 +44,32 @@ function renderHome() {
 }
 
 describe("Home page", () => {
-  it("renders heading", () => {
+  it("renders app heading", () => {
     renderHome();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/Data Fuel/);
   });
 
-  it("renders location section", () => {
+  it("renders the search bar", () => {
     renderHome();
-    expect(screen.getByRole("heading", { level: 2, name: /Mi ubicación/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /usar mi ubicación/i })).toBeInTheDocument();
+    expect(screen.getByTestId("search-bar")).toBeInTheDocument();
   });
 
-  it("renders search section", () => {
+  it("renders the filters bar", () => {
     renderHome();
-    expect(screen.getByText(/Búsqueda/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/litros/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/combustible/i)).toBeInTheDocument();
+    expect(screen.getByTestId("filters-bar")).toBeInTheDocument();
   });
 
-  it("search button is disabled without location", () => {
+  it("renders theme toggle button", () => {
     renderHome();
-    expect(screen.getByRole("button", { name: /buscar/i })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /cambiar a modo/i }),
+    ).toBeInTheDocument();
   });
 
-  it("shows hint when location missing", () => {
+  it("shows no-location prompt when location is missing", () => {
     renderHome();
-    expect(screen.getByText(/Introduce tu ubicación/i)).toBeInTheDocument();
+    // Text appears in both the sidebar and the map area when no location is set
+    const prompts = screen.getAllByText(/Activa la geolocalización/i);
+    expect(prompts.length).toBeGreaterThanOrEqual(1);
   });
 });

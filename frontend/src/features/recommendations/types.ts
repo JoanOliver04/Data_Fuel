@@ -18,6 +18,8 @@ export interface RecommendationItem {
   fuel_cost: number;
   travel_cost: number;
   total_cost: number;
+  driving_distance_km?: number | null;
+  driving_duration_min?: number | null;
 }
 
 export interface RecommendationParams {

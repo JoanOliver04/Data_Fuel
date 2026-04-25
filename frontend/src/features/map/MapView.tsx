@@ -15,6 +15,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import type { RecommendationItem } from "@/features/recommendations/types";
+import { formatDrivingSummary } from "@/features/recommendations/utils";
 
 // ── Icon factory ────────────────────────────────────────────────────────────
 
@@ -155,7 +156,7 @@ const StationMarker = memo(function StationMarker({
             <span className="text-gray-500">Precio:</span>
             <span className="font-medium">{item.price_per_liter.toFixed(3)} €/L</span>
             <span className="text-gray-500">Distancia:</span>
-            <span className="font-medium">{item.distance_km.toFixed(1)} km</span>
+            <span className="font-medium">{formatDrivingSummary(item)}</span>
             <span className="text-gray-500">Coste real:</span>
             <span className="font-bold text-orange-600">{item.total_cost.toFixed(2)} €</span>
           </div>

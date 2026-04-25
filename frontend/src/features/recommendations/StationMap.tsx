@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 import type { RecommendationItem } from "./types";
+import { formatDrivingSummary } from "./utils";
 
 const RANK_BG = ["#f59e0b", "#94a3b8", "#b45309"];
 
@@ -78,7 +79,7 @@ export function StationMap({ items, userLat, userLon }: StationMapProps) {
               </p>
               <p style={{ fontSize: 13 }}>
                 <span style={{ color: "#6b7280" }}>Distancia: </span>
-                {item.distance_km.toFixed(1)} km
+                {formatDrivingSummary(item)}
               </p>
             </div>
           </Popup>

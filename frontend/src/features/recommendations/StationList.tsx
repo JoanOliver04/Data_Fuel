@@ -1,4 +1,4 @@
-import { Heart } from "lucide-react";
+import { Car, Heart } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { useSettingsStore } from "@/stores/settings.store";
 
 import { RecommendationSkeleton } from "./RecommendationSkeleton";
 import type { RecommendationItem } from "./types";
+import { formatDrivingSummary } from "./utils";
 
 // ── Station card ────────────────────────────────────────────────────────────
 
@@ -97,7 +98,10 @@ const StationCard = memo(function StationCard({
         </div>
         <div>
           <p className="text-muted-foreground">Distancia</p>
-          <p className="font-medium">{item.distance_km.toFixed(1)} km</p>
+          <p className="flex items-center gap-1 font-medium">
+            <Car className="h-3 w-3 text-muted-foreground" aria-hidden />
+            {formatDrivingSummary(item)}
+          </p>
         </div>
         <div>
           <p className="text-muted-foreground">Desglose</p>
@@ -184,14 +188,22 @@ export function StationList({
   const displayed = showOnlyFavorites
     ? items.filter((item) => favorites.includes(item.station_id))
     : items;
+  const hasDrivingDistances = items.some((item) => item.driving_distance_km != null);
 
   return (
     <div className="flex h-full flex-col">
       {/* List header */}
       <div className="flex items-center justify-between border-b px-4 py-2.5">
-        <p className="text-sm text-muted-foreground">
-          {items.length} gasolinera{items.length !== 1 ? "s" : ""}
-        </p>
+        <div className="flex flex-col">
+          <p className="text-sm text-muted-foreground">
+            {items.length} gasolinera{items.length !== 1 ? "s" : ""}
+          </p>
+          {hasDrivingDistances && (
+            <p className="text-[11px] text-muted-foreground/70">
+              Distancias calculadas por carretera
+            </p>
+          )}
+        </div>
         {hasFavorites && (
           <button
             type="button"

@@ -2,17 +2,24 @@
 
 V  = liters to refuel
 Pᵢ = price per litre at station i  (€/L)
-Dᵢ = straight-line distance to station i  (km, haversine)
+Dᵢ = distance to station i (km) — haversine by default, real road distance
+     when a `DistanceResult` with `driving_distance_km` is supplied
 K  = vehicle cost per km  (€/km, default 0.13)
 """
 
+from __future__ import annotations
+
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
+from typing import TYPE_CHECKING
 
 from app.domain.entities.fuel_type import FuelType
 from app.infrastructure.database.models.station import StationORM
+
+if TYPE_CHECKING:
+    from app.domain.services.distance_service import DistanceResult
 
 _EARTH_RADIUS_KM = 6_371.0
 _CENT = Decimal("0.001")
@@ -37,6 +44,8 @@ class StationCost:
     fuel_cost: Decimal
     travel_cost: Decimal
     total_cost: Decimal
+    driving_distance_km: float | None = None
+    driving_duration_min: float | None = None
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -58,11 +67,16 @@ def rank_stations(
     km_cost: float,
     max_distance_km: float | None = None,
     limit: int = 10,
+    distances: Mapping[int, DistanceResult] | None = None,
 ) -> list[StationCost]:
     """Rank stations by total refuelling cost for the given parameters.
 
     Stations lacking a price for `fuel_type` or beyond `max_distance_km` are excluded.
     Returns at most `limit` results, cheapest first.
+
+    When `distances` is provided (keyed by `station.id`), the travel cost uses the
+    driving distance from that mapping; otherwise haversine is used. Haversine
+    remains the value of `distance_km` so frontends retain the straight-line metric.
     """
     results: list[StationCost] = []
     liters_d = Decimal(str(liters))
@@ -73,11 +87,18 @@ def rank_stations(
         if price is None:
             continue
 
-        dist = haversine_km(user_lat, user_lon, station.latitude, station.longitude)
-        if max_distance_km is not None and dist > max_distance_km:
+        straight_line = haversine_km(user_lat, user_lon, station.latitude, station.longitude)
+        dist_info = distances.get(station.id) if distances is not None else None
+
+        cost_dist = (
+            dist_info.driving_distance_km
+            if dist_info is not None and dist_info.driving_distance_km is not None
+            else straight_line
+        )
+        if max_distance_km is not None and cost_dist > max_distance_km:
             continue
 
-        dist_d = Decimal(str(round(dist, 3)))
+        dist_d = Decimal(str(round(cost_dist, 3)))
         fuel_cost = (liters_d * price).quantize(_CENT, ROUND_HALF_UP)
         travel_cost = (dist_d * km_cost_d).quantize(_CENT, ROUND_HALF_UP)
         total_cost = fuel_cost + travel_cost
@@ -96,11 +117,21 @@ def rank_stations(
                 fuel_type=fuel_type,
                 price_per_liter=price,
                 liters=liters,
-                distance_km=round(dist, 3),
+                distance_km=round(straight_line, 3),
                 km_cost=km_cost,
                 fuel_cost=fuel_cost,
                 travel_cost=travel_cost,
                 total_cost=total_cost,
+                driving_distance_km=(
+                    round(dist_info.driving_distance_km, 3)
+                    if dist_info is not None and dist_info.driving_distance_km is not None
+                    else None
+                ),
+                driving_duration_min=(
+                    round(dist_info.driving_duration_min, 1)
+                    if dist_info is not None and dist_info.driving_duration_min is not None
+                    else None
+                ),
             )
         )
 

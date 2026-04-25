@@ -34,6 +34,21 @@ class Settings(BaseSettings):
     # ─── Cost calculation ─────────────────────────────────
     default_km_cost: float = Field(default=0.13, ge=0.0)
 
+    # ─── Distance calculation ─────────────────────────────
+    distance_mode: str = Field(default="EUCLIDEAN")
+    ors_api_key: str | None = None
+    ors_base_url: str = Field(default="https://api.openrouteservice.org")
+    ors_request_timeout: float = 10.0
+    ors_matrix_chunk_size: int = Field(default=50, ge=1, le=50)
+
+    @field_validator("distance_mode", mode="before")
+    @classmethod
+    def _normalize_distance_mode(cls, value: str) -> str:
+        v = str(value).strip().upper()
+        if v not in {"EUCLIDEAN", "DRIVING"}:
+            raise ValueError("DISTANCE_MODE must be 'EUCLIDEAN' or 'DRIVING'")
+        return v
+
     # ─── Sync scheduler ───────────────────────────────────
     sync_interval_seconds: int = Field(default=3600, ge=60)
     sync_on_startup: bool = True

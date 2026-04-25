@@ -10,7 +10,13 @@ from app.core.config import get_settings
 from app.core.rate_limit import limiter
 from app.domain.entities.fuel_type import FuelType
 from app.domain.services.cost_calculator import rank_stations
+from app.domain.services.distance_service import (
+    DistanceMode,
+    DistanceResult,
+    DistanceService,
+)
 from app.infrastructure.database.session import get_async_session
+from app.infrastructure.external.ors import ORSClient
 from app.repositories.station_repository import StationRepository
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
@@ -58,6 +64,8 @@ async def get_recommendations(
             if south <= s.latitude <= north and west <= s.longitude <= east
         ]
 
+    distances = await _compute_distances(settings, lat, lon, stations)
+
     ranked = rank_stations(
         stations=stations,
         fuel_type=fuel_type,
@@ -67,5 +75,24 @@ async def get_recommendations(
         km_cost=effective_km_cost,
         max_distance_km=max_distance_km,
         limit=limit,
+        distances=distances,
     )
     return [RecommendationOut.from_station_cost(sc) for sc in ranked]
+
+
+async def _compute_distances(
+    settings,
+    user_lat: float,
+    user_lon: float,
+    stations: list,
+) -> dict[int, DistanceResult] | None:
+    """Return per-station driving distances when DRIVING mode is active; else None."""
+    mode = DistanceMode(settings.distance_mode)
+    if mode is DistanceMode.EUCLIDEAN or not stations:
+        return None
+
+    ors_client = ORSClient() if settings.ors_api_key else None
+    service = DistanceService(mode=mode, ors_client=ors_client)
+    destinations = [(s.latitude, s.longitude) for s in stations]
+    results = await service.compute((user_lat, user_lon), destinations)
+    return {station.id: result for station, result in zip(stations, results, strict=True)}

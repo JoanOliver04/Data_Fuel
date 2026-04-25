@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { Car, ChevronDown, ChevronUp } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { FavoriteButton } from "@/features/favorites/FavoriteButton";
@@ -9,6 +9,7 @@ import { usePriceHistory } from "@/features/price-history/hooks";
 import { PredictionBadge } from "@/features/predictions/PredictionBadge";
 
 import type { RecommendationItem } from "./types";
+import { formatDrivingSummary } from "./utils";
 
 interface RecommendationCardProps {
   item: RecommendationItem;
@@ -52,7 +53,10 @@ export function RecommendationCard({ item, rank }: RecommendationCardProps) {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Distancia</p>
-            <p className="font-medium">{item.distance_km.toFixed(1)} km</p>
+            <p className="flex items-center gap-1 font-medium">
+              <Car className="h-3 w-3 text-muted-foreground" aria-hidden />
+              {formatDrivingSummary(item)}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Desglose</p>
