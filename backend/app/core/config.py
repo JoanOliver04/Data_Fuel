@@ -22,6 +22,20 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = False
 
+    # ─── Logging ──────────────────────────────────────────
+    # DEBUG | INFO | WARNING | ERROR. Use DEBUG locally to see HTTP/SQL detail.
+    log_level: str = Field(default="INFO")
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def _normalize_log_level(cls, value: str) -> str:
+        v = str(value).strip().upper()
+        if v not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            raise ValueError(
+                "LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR, or CRITICAL"
+            )
+        return v
+
     # ─── Database ─────────────────────────────────────────
     database_url: str = Field(default="sqlite+aiosqlite:///./datafuel.db")
 

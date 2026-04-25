@@ -1,5 +1,6 @@
 """Vehicle profiles endpoints: CRUD + km-cost estimator."""
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,6 +15,8 @@ from app.api.v1.schemas.vehicle_profile import (
 from app.domain.services.vehicle_profile_service import compute_km_cost
 from app.infrastructure.database.session import get_async_session
 from app.repositories.vehicle_profile_repository import VehicleProfileRepository
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/vehicle-profiles", tags=["vehicle-profiles"])
 
@@ -64,6 +67,12 @@ async def create_vehicle_profile(
         "km_cost_per_km": km_cost,
     }
     profile = await VehicleProfileRepository(session).create(data)
+    log.info(
+        "vehicle-profile created: id=%d name=%r km_cost=%.4f",
+        profile.id,
+        profile.name,
+        km_cost,
+    )
     return VehicleProfileOut.model_validate(profile)
 
 
@@ -74,6 +83,7 @@ async def get_vehicle_profile(
 ) -> VehicleProfileOut:
     profile = await VehicleProfileRepository(session).get_by_id(profile_id)
     if profile is None:
+        log.info("vehicle-profile get: id=%d not found", profile_id)
         raise HTTPException(status_code=404, detail="Vehicle profile not found")
     return VehicleProfileOut.model_validate(profile)
 
@@ -87,6 +97,7 @@ async def update_vehicle_profile(
     repo = VehicleProfileRepository(session)
     profile = await repo.get_by_id(profile_id)
     if profile is None:
+        log.info("vehicle-profile update: id=%d not found", profile_id)
         raise HTTPException(status_code=404, detail="Vehicle profile not found")
 
     updates: dict = body.model_dump(exclude_none=True, exclude={"reference_fuel_price"})
@@ -105,6 +116,11 @@ async def update_vehicle_profile(
         updates["km_cost_per_km"] = compute_km_cost(new_mixed, ref_price)
 
     profile = await repo.update(profile, updates)
+    log.info(
+        "vehicle-profile updated: id=%d fields=%s",
+        profile_id,
+        sorted(updates.keys()),
+    )
     return VehicleProfileOut.model_validate(profile)
 
 
@@ -120,5 +136,7 @@ async def delete_vehicle_profile(
     repo = VehicleProfileRepository(session)
     profile = await repo.get_by_id(profile_id)
     if profile is None:
+        log.info("vehicle-profile delete: id=%d not found", profile_id)
         raise HTTPException(status_code=404, detail="Vehicle profile not found")
     await repo.delete(profile)
+    log.info("vehicle-profile deleted: id=%d", profile_id)

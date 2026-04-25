@@ -15,7 +15,9 @@ The MITECO endpoint has three quirks that this client compensates for:
 """
 
 import json
+import logging
 import ssl
+import time
 from types import TracebackType
 from typing import Self
 
@@ -24,6 +26,8 @@ import truststore
 
 from app.core.config import get_settings
 from app.infrastructure.external.miteco.schemas import MitecoApiResponse
+
+log = logging.getLogger(__name__)
 
 
 class MitecoClientError(RuntimeError):
@@ -83,14 +87,33 @@ class MitecoClient:
         if self._client is None:
             raise MitecoClientError("Client is not initialised. Use 'async with MitecoClient()'.")
 
+        url = f"{self._base_url}{self._ALL_STATIONS_PATH}"
+        log.info("MITECO GET %s", url)
+        start = time.perf_counter()
         try:
             response = await self._client.get(self._ALL_STATIONS_PATH)
             response.raise_for_status()
         except httpx.HTTPError as exc:
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            log.error("MITECO GET %s failed after %.1fms: %s", url, elapsed_ms, exc)
             raise MitecoClientError(f"MITECO request failed: {exc}") from exc
+
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        size_kb = len(response.content) / 1024
+        log.info(
+            "MITECO GET %s → %d (%.1fms, %.1f KB)",
+            url,
+            response.status_code,
+            elapsed_ms,
+            size_kb,
+        )
 
         try:
             payload = json.loads(response.content)
-            return MitecoApiResponse.model_validate(payload)
+            parsed = MitecoApiResponse.model_validate(payload)
         except (json.JSONDecodeError, ValueError) as exc:
+            log.exception("MITECO response parse failed (%.1f KB body)", size_kb)
             raise MitecoClientError(f"Could not parse MITECO response: {exc}") from exc
+
+        log.debug("MITECO parsed %d stations", len(parsed.stations))
+        return parsed

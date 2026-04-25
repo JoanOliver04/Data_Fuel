@@ -1,5 +1,6 @@
 """Stations endpoints."""
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -11,6 +12,8 @@ from app.domain.entities.fuel_type import FuelType
 from app.infrastructure.database.session import get_async_session
 from app.repositories.price_repository import PriceRepository
 from app.repositories.station_repository import StationRepository
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/stations", tags=["stations"])
 
@@ -25,6 +28,12 @@ async def list_stations(
 ) -> list[StationOut]:
     repo = StationRepository(session)
     stations = await repo.list_all(province=province, municipality=municipality)
+    log.debug(
+        "stations list: %d results (province=%s, municipality=%s)",
+        len(stations),
+        province,
+        municipality,
+    )
     return [StationOut.from_orm_station(s) for s in stations]
 
 
@@ -36,6 +45,7 @@ async def get_station(
     repo = StationRepository(session)
     station = await repo.get_by_id(station_id)
     if station is None:
+        log.info("stations get: station_id=%d not found", station_id)
         raise HTTPException(status_code=404, detail="Station not found")
     return StationOut.from_orm_station(station)
 
@@ -53,7 +63,15 @@ async def get_price_history(
 ) -> list[PricePointOut]:
     station_repo = StationRepository(session)
     if await station_repo.get_by_id(station_id) is None:
+        log.info("price-history: station_id=%d not found", station_id)
         raise HTTPException(status_code=404, detail="Station not found")
     price_repo = PriceRepository(session)
     rows = await price_repo.get_price_history(station_id, fuel_type, days)
+    log.debug(
+        "price-history: station_id=%d fuel=%s days=%d → %d points",
+        station_id,
+        fuel_type,
+        days,
+        len(rows),
+    )
     return [PricePointOut(**row) for row in rows]

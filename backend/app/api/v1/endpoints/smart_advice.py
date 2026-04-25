@@ -1,5 +1,6 @@
 """Smart refuelling advisor endpoint."""
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -15,6 +16,8 @@ from app.domain.services.smart_refuel_service import SmartRefuelService
 from app.infrastructure.database.session import get_async_session
 from app.repositories.price_repository import PriceRepository
 from app.repositories.station_repository import StationRepository
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/smart-advice", tags=["smart-advice"])
 
@@ -40,6 +43,15 @@ async def get_smart_advice(
 ) -> SmartAdviceOut:
     settings = get_settings()
     effective_km_cost = km_cost if km_cost is not None else settings.default_km_cost
+    log.debug(
+        "smart-advice: lat=%.4f lon=%.4f fuel=%s liters=%s max_distance=%s km_cost=%s",
+        lat,
+        lon,
+        fuel_type,
+        liters,
+        max_distance_km,
+        effective_km_cost,
+    )
 
     stations = await StationRepository(session).list_all()
     ranked = rank_stations(
@@ -53,9 +65,20 @@ async def get_smart_advice(
         limit=1,
     )
     if not ranked:
+        log.info(
+            "smart-advice: no stations within %s km for fuel=%s",
+            max_distance_km,
+            fuel_type,
+        )
         raise HTTPException(status_code=404, detail="No stations found in the search area")
 
     best = ranked[0]
+    log.info(
+        "smart-advice: best=station_id=%d brand=%s price=%.3f",
+        best.station_id,
+        best.brand,
+        float(best.price_per_liter),
+    )
 
     raw = await PriceRepository(session).get_training_data(fuel_type)
     rows = [TrainingRow(**r) for r in raw]

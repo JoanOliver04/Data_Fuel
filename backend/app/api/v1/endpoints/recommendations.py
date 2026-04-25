@@ -1,5 +1,6 @@
 """Recommendations endpoint: cheapest stations ranked by total refuelling cost."""
 
+import logging
 from decimal import Decimal
 from typing import Annotated
 
@@ -26,6 +27,8 @@ from app.infrastructure.database.session import get_async_session
 from app.infrastructure.external.ors import ORSClient
 from app.repositories.station_repository import StationRepository
 from app.repositories.vehicle_profile_repository import VehicleProfileRepository
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
@@ -65,10 +68,23 @@ async def get_recommendations(
     settings = get_settings()
     station_repo = StationRepository(session)
 
+    log.debug(
+        "recommendations: lat=%.4f lon=%.4f fuel=%s liters=%s limit=%d profile=%s km_cost=%s bbox=%s",
+        lat,
+        lon,
+        fuel_type,
+        liters,
+        limit,
+        vehicle_profile_id,
+        km_cost,
+        all(v is not None for v in (north, south, east, west)),
+    )
+
     profile: VehicleProfileORM | None = None
     if vehicle_profile_id is not None:
         profile = await VehicleProfileRepository(session).get_by_id(vehicle_profile_id)
         if profile is None:
+            log.info("recommendations: vehicle_profile_id=%d not found", vehicle_profile_id)
             raise HTTPException(status_code=404, detail="Vehicle profile not found")
         effective_km_cost = profile.km_cost_per_km
     elif km_cost is not None:
@@ -77,6 +93,7 @@ async def get_recommendations(
         effective_km_cost = settings.default_km_cost
 
     stations = await station_repo.list_all()
+    total_stations = len(stations)
 
     # Pre-filter by bounding box when all four edges are provided
     if north is not None and south is not None and east is not None and west is not None:
@@ -85,6 +102,11 @@ async def get_recommendations(
             for s in stations
             if south <= s.latitude <= north and west <= s.longitude <= east
         ]
+        log.debug(
+            "recommendations bbox filter: %d → %d stations",
+            total_stations,
+            len(stations),
+        )
 
     distances = await _compute_distances(settings, lat, lon, stations)
     resolver = _build_resolver(profile)
@@ -100,6 +122,13 @@ async def get_recommendations(
         limit=limit,
         distances=distances,
         km_cost_resolver=resolver,
+    )
+    log.info(
+        "recommendations: %d/%d stations ranked (fuel=%s, distance_mode=%s)",
+        len(ranked),
+        len(stations),
+        fuel_type,
+        settings.distance_mode,
     )
     return [RecommendationOut.from_station_cost(sc) for sc in ranked]
 

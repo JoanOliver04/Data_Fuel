@@ -7,6 +7,8 @@ larger than `chunk_size` destinations are split and concatenated.
 
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass
 from types import TracebackType
 from typing import Self
@@ -14,6 +16,8 @@ from typing import Self
 import httpx
 
 from app.core.config import get_settings
+
+log = logging.getLogger(__name__)
 
 _UNSET: object = object()
 
@@ -98,9 +102,17 @@ class ORSClient:
         if not destinations:
             return []
 
+        n_chunks = (len(destinations) + self._chunk_size - 1) // self._chunk_size
+        log.info(
+            "ORS matrix: origin=(%.4f,%.4f) destinations=%d chunks=%d",
+            origin[0],
+            origin[1],
+            len(destinations),
+            n_chunks,
+        )
         results: list[ORSMatrixResult] = []
-        for start in range(0, len(destinations), self._chunk_size):
-            chunk = destinations[start : start + self._chunk_size]
+        for start_idx in range(0, len(destinations), self._chunk_size):
+            chunk = destinations[start_idx : start_idx + self._chunk_size]
             results.extend(await self._matrix_chunk(origin, chunk))
         return results
 
@@ -120,20 +132,45 @@ class ORSClient:
             "units": "km",
         }
 
+        start = time.perf_counter()
         try:
             response = await self._client.post(self._MATRIX_PATH, json=payload)
             response.raise_for_status()
         except httpx.HTTPError as exc:
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            log.error(
+                "ORS POST %s failed after %.1fms (%d destinations): %s",
+                self._MATRIX_PATH,
+                elapsed_ms,
+                len(destinations),
+                exc,
+            )
             raise ORSClientError(f"ORS request failed: {exc}") from exc
+
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        log.debug(
+            "ORS POST %s → %d (%.1fms, %d destinations)",
+            self._MATRIX_PATH,
+            response.status_code,
+            elapsed_ms,
+            len(destinations),
+        )
 
         try:
             data = response.json()
             distances = data["distances"][0]
             durations = data["durations"][0]
         except (KeyError, ValueError, IndexError, TypeError) as exc:
+            log.exception("ORS response parse failed")
             raise ORSClientError(f"Could not parse ORS response: {exc}") from exc
 
         if len(distances) != len(destinations) or len(durations) != len(destinations):
+            log.error(
+                "ORS length mismatch: distances=%d durations=%d expected=%d",
+                len(distances),
+                len(durations),
+                len(destinations),
+            )
             raise ORSClientError("ORS response length mismatch with destinations")
 
         return [

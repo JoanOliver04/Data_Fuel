@@ -1,5 +1,7 @@
 """Predictions endpoint: 48h price forecast for a given station and fuel type."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +13,8 @@ from app.domain.services.prediction_service import PredictionService, TrainingRo
 from app.infrastructure.database.session import get_async_session
 from app.repositories.price_repository import PriceRepository
 from app.repositories.station_repository import StationRepository
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/predictions", tags=["predictions"])
 
@@ -42,18 +46,26 @@ async def get_prediction(
     session: AsyncSession = Depends(get_async_session),
     prediction_svc: PredictionService = Depends(_get_prediction_service),
 ) -> PredictionOut:
+    log.debug("predictions: station_id=%d fuel=%s", station_id, fuel_type)
     station = await StationRepository(session).get_by_id(station_id)
     if station is None:
+        log.info("predictions: station_id=%d not found", station_id)
         raise HTTPException(status_code=404, detail="Station not found")
 
     current_price = getattr(station, _FUEL_PRICE_ATTR[fuel_type])
     if current_price is None:
+        log.info(
+            "predictions: station_id=%d has no current price for fuel=%s",
+            station_id,
+            fuel_type,
+        )
         raise HTTPException(
             status_code=404, detail="No current price for this fuel type at this station"
         )
 
     raw = await PriceRepository(session).get_training_data(fuel_type)
     rows = [TrainingRow(**r) for r in raw]
+    log.debug("predictions: %d training rows for fuel=%s", len(rows), fuel_type)
 
     result = prediction_svc.predict(
         rows=rows,
@@ -63,6 +75,11 @@ async def get_prediction(
         fuel_type=fuel_type,
     )
     if result is None:
+        log.warning(
+            "predictions: insufficient training data for fuel=%s (got %d, need ≥30)",
+            fuel_type,
+            len(rows),
+        )
         raise HTTPException(
             status_code=404,
             detail=f"Insufficient training data (need ≥{30} records, got {len(rows)})",

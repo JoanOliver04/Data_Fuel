@@ -6,7 +6,10 @@
  * backend URL.
  */
 
+import { createLogger } from "./logger";
+
 const BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "";
+const log = createLogger("api");
 
 export class ApiError extends Error {
   constructor(
@@ -21,14 +24,27 @@ export class ApiError extends Error {
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${BASE_URL}${path}`;
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
-      ...init?.headers,
-    },
-  });
+  const method = init?.method ?? "GET";
+  const start = performance.now();
+  log.debug(`${method} ${path}`);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      headers: {
+        Accept: "application/json",
+        ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch (err) {
+    const elapsed = (performance.now() - start).toFixed(0);
+    log.error(`${method} ${path} network failure (${elapsed}ms)`, err);
+    throw err;
+  }
+
+  const elapsed = (performance.now() - start).toFixed(0);
 
   if (!response.ok) {
     let detail: unknown;
@@ -45,8 +61,14 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       }
     }
     const base = `Request failed: ${response.status} ${response.statusText}`;
+    log.warn(
+      `${method} ${path} → ${response.status} (${elapsed}ms)`,
+      detailText ?? detail ?? "",
+    );
     throw new ApiError(response.status, detailText ? `${base} — ${detailText}` : base, detail);
   }
+
+  log.debug(`${method} ${path} → ${response.status} (${elapsed}ms)`);
 
   if (response.status === 204) {
     return undefined as T;
