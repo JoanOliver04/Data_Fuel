@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas.recommendation import RecommendationOut
@@ -15,9 +15,11 @@ from app.domain.services.distance_service import (
     DistanceResult,
     DistanceService,
 )
+from app.domain.services.vehicle_profile_service import compute_km_cost
 from app.infrastructure.database.session import get_async_session
 from app.infrastructure.external.ors import ORSClient
 from app.repositories.station_repository import StationRepository
+from app.repositories.vehicle_profile_repository import VehicleProfileRepository
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
@@ -32,7 +34,10 @@ async def get_recommendations(
     fuel_type: Annotated[FuelType, Query(description="Fuel type")],
     limit: Annotated[int, Query(ge=1, le=50, description="Max results")] = 10,
     km_cost: Annotated[
-        float | None, Query(ge=0, description="Vehicle cost per km (€/km)")
+        float | None, Query(ge=0, description="Vehicle cost per km (€/km) — manual override")
+    ] = None,
+    vehicle_profile_id: Annotated[
+        int | None, Query(description="Vehicle profile ID — overrides km_cost when set")
     ] = None,
     max_distance_km: Annotated[
         float | None, Query(ge=0, description="Exclude stations beyond this distance")
@@ -52,9 +57,24 @@ async def get_recommendations(
     session: AsyncSession = Depends(get_async_session),
 ) -> list[RecommendationOut]:
     settings = get_settings()
-    effective_km_cost = km_cost if km_cost is not None else settings.default_km_cost
+    station_repo = StationRepository(session)
 
-    stations = await StationRepository(session).list_all()
+    if vehicle_profile_id is not None:
+        profile = await VehicleProfileRepository(session).get_by_id(vehicle_profile_id)
+        if profile is None:
+            raise HTTPException(status_code=404, detail="Vehicle profile not found")
+        avg_price = await station_repo.avg_price_for_fuel_type(fuel_type)
+        if avg_price is not None:
+            effective_km_cost = compute_km_cost(profile.fuel_consumption_per_100km, avg_price)
+        else:
+            # Fallback to the profile's reference K when no live prices are available.
+            effective_km_cost = profile.km_cost_per_km
+    elif km_cost is not None:
+        effective_km_cost = km_cost
+    else:
+        effective_km_cost = settings.default_km_cost
+
+    stations = await station_repo.list_all()
 
     # Pre-filter by bounding box when all four edges are provided
     if north is not None and south is not None and east is not None and west is not None:

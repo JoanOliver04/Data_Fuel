@@ -42,7 +42,11 @@ export async function fetchRecommendations(
     fuel_type: params.fuel_type,
   });
   if (params.limit !== undefined) qs.set("limit", String(params.limit));
-  if (params.km_cost !== undefined) qs.set("km_cost", String(params.km_cost));
+  if (params.vehicle_profile_id !== undefined) {
+    qs.set("vehicle_profile_id", String(params.vehicle_profile_id));
+  } else if (params.km_cost !== undefined) {
+    qs.set("km_cost", String(params.km_cost));
+  }
   if (params.max_distance_km !== undefined) qs.set("max_distance_km", String(params.max_distance_km));
   if (params.north !== undefined) qs.set("north", String(params.north));
   if (params.south !== undefined) qs.set("south", String(params.south));

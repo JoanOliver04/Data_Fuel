@@ -1,12 +1,14 @@
 import { useState } from "react";
 
-import { Car, ChevronDown, ChevronUp } from "lucide-react";
+import { Car, ChevronDown, ChevronUp, Info } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FavoriteButton } from "@/features/favorites/FavoriteButton";
 import { PriceHistoryChart } from "@/features/price-history/PriceHistoryChart";
 import { usePriceHistory } from "@/features/price-history/hooks";
 import { PredictionBadge } from "@/features/predictions/PredictionBadge";
+import { useSettingsStore } from "@/stores/settings.store";
 
 import type { RecommendationItem } from "./types";
 import { formatDrivingSummary } from "./utils";
@@ -19,6 +21,7 @@ interface RecommendationCardProps {
 export function RecommendationCard({ item, rank }: RecommendationCardProps) {
   const [showChart, setShowChart] = useState(false);
   const { data: history } = usePriceHistory(item.station_id, item.fuel_type, showChart);
+  const activeVehicleProfileId = useSettingsStore((s) => s.activeVehicleProfileId);
 
   return (
     <Card>
@@ -42,7 +45,21 @@ export function RecommendationCard({ item, rank }: RecommendationCardProps) {
           </div>
           <div className="shrink-0 text-right">
             <p className="text-xl font-bold">{Number(item.total_cost).toFixed(2)} €</p>
-            <p className="text-xs text-muted-foreground">total</p>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="flex cursor-default items-center justify-end gap-0.5 text-xs text-muted-foreground">
+                    total
+                    <Info className="h-3 w-3" aria-hidden />
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  {activeVehicleProfileId !== null
+                    ? `Tu vehículo: ${Number(item.km_cost).toFixed(3)} €/km`
+                    : `Coste por km: ${Number(item.km_cost).toFixed(3)} €/km`}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 

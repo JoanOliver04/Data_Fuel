@@ -16,6 +16,7 @@ from app.infrastructure.database.base import Base
 from app.infrastructure.database.models import (  # noqa: F401  (registers ORM models)
     PriceHistoryORM,
     StationORM,
+    VehicleProfileORM,
 )
 from app.main import create_app
 

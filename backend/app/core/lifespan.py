@@ -10,7 +10,7 @@ from app.core.config import get_settings
 from app.core.scheduler import create_scheduler
 from app.domain.services.prediction_service import PredictionService
 from app.infrastructure.database import Base, get_engine, get_session_factory
-from app.infrastructure.database.models import PriceHistoryORM, StationORM  # noqa: F401
+from app.infrastructure.database.models import PriceHistoryORM, StationORM, VehicleProfileORM  # noqa: F401
 from app.services.sync_service import SyncService
 
 log = logging.getLogger(__name__)

@@ -16,12 +16,14 @@ interface SettingsState {
   userLon: number | null;
   favorites: number[];
   theme: Theme;
+  activeVehicleProfileId: number | null;
   setKmCost: (value: number) => void;
   setLiters: (value: number) => void;
   setPreferredFuel: (value: FuelType) => void;
   setLocation: (lat: number, lon: number) => void;
   toggleFavorite: (stationId: number) => void;
   setTheme: (theme: Theme) => void;
+  setActiveVehicleProfileId: (id: number | null) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -34,6 +36,7 @@ export const useSettingsStore = create<SettingsState>()(
       userLon: null,
       favorites: [],
       theme: (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") satisfies Theme,
+      activeVehicleProfileId: null,
       setKmCost: (value) => set({ kmCost: value }),
       setLiters: (value) => set({ liters: value }),
       setPreferredFuel: (value) => set({ preferredFuel: value }),
@@ -45,6 +48,7 @@ export const useSettingsStore = create<SettingsState>()(
             : [...state.favorites, stationId],
         })),
       setTheme: (theme) => set({ theme }),
+      setActiveVehicleProfileId: (id) => set({ activeVehicleProfileId: id }),
     }),
     { name: "datafuel-settings" },
   ),

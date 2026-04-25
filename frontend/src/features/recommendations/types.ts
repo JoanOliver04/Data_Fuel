@@ -29,6 +29,7 @@ export interface RecommendationParams {
   fuel_type: FuelType;
   limit?: number;
   km_cost?: number;
+  vehicle_profile_id?: number;
   max_distance_km?: number;
   /** Bounding box for map-based search. All four must be set together. */
   north?: number;

@@ -1,5 +1,6 @@
-import { Moon, Sun } from "lucide-react";
+import { Moon, Settings, Sun } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { HealthBadge } from "@/features/health/HealthBadge";
@@ -11,6 +12,7 @@ import { StationList } from "@/features/recommendations/StationList";
 import type { RecommendationItem, RecommendationParams } from "@/features/recommendations/types";
 import { SmartAdviceCard } from "@/features/smart-advice/SmartAdviceCard";
 import type { SmartAdviceParams } from "@/features/smart-advice/types";
+import { VehicleProfileBanner } from "@/features/vehicle-profile/VehicleProfileBanner";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useSearchStore } from "@/stores/search.store";
 import { cn } from "@/lib/utils";
@@ -116,7 +118,8 @@ function stationIsOpen(schedule: string): boolean {
 // ── Home ────────────────────────────────────────────────────────────────────
 
 export function Home() {
-  const { liters, kmCost, preferredFuel, userLat, userLon, theme, setTheme } = useSettingsStore();
+  const { liters, kmCost, preferredFuel, userLat, userLon, theme, setTheme, activeVehicleProfileId } =
+    useSettingsStore();
   const {
     radius,
     sortBy,
@@ -143,15 +146,19 @@ export function Home() {
       lon: userLon,
       liters,
       fuel_type: preferredFuel,
-      km_cost: kmCost,
       limit: 25,
     };
+    if (activeVehicleProfileId !== null) {
+      base.vehicle_profile_id = activeVehicleProfileId;
+    } else {
+      base.km_cost = kmCost;
+    }
     if (boundsBBox) {
       return { ...base, ...boundsBBox };
     }
     if (radius !== undefined) base.max_distance_km = radius;
     return base;
-  }, [userLat, userLon, liters, preferredFuel, kmCost, radius, boundsBBox]);
+  }, [userLat, userLon, liters, preferredFuel, kmCost, activeVehicleProfileId, radius, boundsBBox]);
 
   const { data, isLoading, isError } = useRecommendations(searchParams);
 
@@ -165,6 +172,8 @@ export function Home() {
       km_cost: kmCost,
     };
   }, [userLat, userLon, preferredFuel, liters, kmCost]);
+
+  const hasVehicleProfile = activeVehicleProfileId !== null;
 
   // Unique brands for FiltersModal
   const allBrands = useMemo<string[]>(() => {
@@ -210,14 +219,21 @@ export function Home() {
               <h1 className="text-lg font-bold tracking-tight">Data Fuel ⛽</h1>
               <HealthBadge />
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+              >
+                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+              <Link to="/settings">
+                <Button variant="ghost" size="icon" aria-label="Ajustes">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
           <SearchBar isSearching={isLoading} />
           <FiltersBar allBrands={allBrands} />
@@ -233,6 +249,11 @@ export function Home() {
               <div className="shrink-0 px-4 pt-4">
                 <SmartAdviceCard params={smartAdviceParams} />
               </div>
+              {!hasVehicleProfile && (
+                <div className="shrink-0 px-4 pt-2">
+                  <VehicleProfileBanner />
+                </div>
+              )}
               <StationList
                 items={processedData}
                 isLoading={isLoading}
@@ -286,6 +307,11 @@ export function Home() {
               {smartAdviceParams && (
                 <div className="px-4 pt-3">
                   <SmartAdviceCard params={smartAdviceParams} />
+                </div>
+              )}
+              {!hasVehicleProfile && (
+                <div className="px-4 pt-2">
+                  <VehicleProfileBanner />
                 </div>
               )}
               <StationList

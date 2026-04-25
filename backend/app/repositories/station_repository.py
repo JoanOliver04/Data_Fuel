@@ -3,10 +3,11 @@
 from collections.abc import Sequence
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, select
+from sqlalchemy import CursorResult, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.entities.fuel_type import FuelType
 from app.infrastructure.database.models.station import StationORM
 
 # Safe chunk size for SQLite's 999-parameter limit: 999 // 16 cols ≈ 62.
@@ -54,3 +55,18 @@ class StationRepository:
             q = q.where(StationORM.municipality.ilike(f"%{municipality}%"))
         result = await self._session.execute(q)
         return result.scalars().all()
+
+    async def avg_price_for_fuel_type(self, fuel_type: FuelType) -> float | None:
+        """Return the average current price across all stations for a given fuel type."""
+        col = {
+            FuelType.GASOLINA_95: StationORM.price_gasoline_95_e5,
+            FuelType.GASOLINA_95_E10: StationORM.price_gasoline_95_e10,
+            FuelType.GASOLINA_98: StationORM.price_gasoline_98_e5,
+            FuelType.GASOIL: StationORM.price_diesel_a,
+            FuelType.GASOIL_PREMIUM: StationORM.price_diesel_premium,
+        }.get(fuel_type)
+        if col is None:
+            return None
+        result = await self._session.execute(select(func.avg(col)))
+        value = result.scalar_one_or_none()
+        return float(value) if value is not None else None
