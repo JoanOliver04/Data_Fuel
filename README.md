@@ -10,8 +10,8 @@
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/SQLAlchemy-2.0%20async-D71F00" alt="SQLAlchemy 2.0" />
   <img src="https://img.shields.io/badge/scikit--learn-1.5-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn" />
-  <img src="https://img.shields.io/badge/tests-94%20passing-brightgreen" alt="94 tests passing" />
-  <img src="https://img.shields.io/badge/coverage-89%25-brightgreen" alt="Coverage 89%" />
+  <img src="https://img.shields.io/badge/tests-201%20passing-brightgreen" alt="201 tests passing" />
+  <img src="https://img.shields.io/badge/coverage-86%25-brightgreen" alt="Coverage 86%" />
   <img src="https://img.shields.io/badge/mypy-strict-blue" alt="mypy strict" />
   <img src="https://img.shields.io/badge/license-PolyForm%20NC%201.0-lightgrey" alt="License" />
 </p>
@@ -47,9 +47,10 @@ On top of this, a **scikit-learn Ridge regression** predicts the 48-hour price d
 - **Clean Architecture backend** — strict dependency direction (`domain → services → repositories → infrastructure → API`). No ORM leaks into domain, no HTTP into business logic.
 - **Async end-to-end** — FastAPI + SQLAlchemy 2.0 async + `httpx.AsyncClient`. Sync job runs on APScheduler without blocking the event loop.
 - **Typed end-to-end** — `mypy --strict` on the backend, `tsc --strict` + `exactOptionalPropertyTypes` + `noUncheckedIndexedAccess` on the frontend. Zero `any` leaking into public signatures.
-- **94 tests, 89% coverage** — unit tests for domain logic, integration tests hitting a real in-memory SQLite via ASGI transport, repo-level tests for SQL behaviour. 25 frontend tests covering components, hooks, and API clients.
+- **176 backend + 25 frontend tests, 86% coverage** — unit tests for domain logic, integration tests hitting a real in-memory SQLite via ASGI transport, repo-level tests for SQL behaviour. Frontend tests cover components, hooks, and API clients.
 - **Real data source** — the official Spanish MITECO carburantes API (not web scraping), refreshed hourly via APScheduler with idempotent upserts.
 - **ML pipeline** — a `Pipeline` with `ColumnTransformer` (numerical scaling + one-hot encoding) + `Ridge` regression, trained on 30 days of price history with 6-hour per-fuel-type caching.
+- **Performance pass** — SQL-side bbox/radius prefilter (skips ~10 k row hydration per call), top-N pre-rank by haversine before the ORS Matrix call (~5× cheaper quota), async-safe TTL cache on `/recommendations` (cache hits return in <1 ms), GZip middleware (~70 % smaller JSON), Vite manual chunks + lazy-loaded routes and Recharts.
 - **Hardened** — per-endpoint rate limiting (slowapi), CORS allow-list from env, docs endpoints gated behind `DEBUG`, TLS verification via `truststore`, parameterised queries throughout.
 
 ---
@@ -125,18 +126,31 @@ sequenceDiagram
     participant F as Frontend
     participant R as FastAPI router
     participant RL as slowapi limiter
+    participant C as TTLCache (5 min)
     participant S as cost_calculator
     participant DB as Station repo / SQLite
+    participant ORS as ORS Matrix API
 
     U->>F: Enter location + litres
     F->>R: GET /recommendations?lat&lon&liters&fuel_type
     R->>RL: check IP quota (10/min)
     RL-->>R: allow
-    R->>DB: list_all stations (optional filters)
-    DB-->>R: stations with prices
-    R->>S: rank_stations(haversine + cost formula)
-    S-->>R: top N ranked by total_cost
-    R-->>F: list[RecommendationOut]
+    R->>C: lookup by (lat,lon,radius,fuel,profile,…)
+    alt cache hit
+        C-->>R: cached response
+        R-->>F: list[RecommendationOut]
+    else cache miss
+        R->>DB: find_candidates (bbox / radius + fuel filter pushed to SQL)
+        DB-->>R: candidate stations
+        R->>S: pre-rank top N by haversine + price
+        S-->>R: top N candidates
+        R->>ORS: matrix(top N) — driving distance & duration
+        ORS-->>R: per-station distances
+        R->>S: final rank with driving cost
+        S-->>R: top limit by total_cost
+        R->>C: store
+        R-->>F: list[RecommendationOut] (gzip-compressed)
+    end
     F->>U: render ranked cards + Leaflet map
 ```
 
@@ -153,6 +167,8 @@ sequenceDiagram
 | ML | **scikit-learn** (`Pipeline` + `Ridge`) | Deterministic, explainable, fast to retrain, no GPU. Trained lazily and cached 6 h per fuel type |
 | HTTP client | **httpx + truststore** | Async, uses OS trust store (Windows-friendly, no bundled CAs drift) |
 | Rate limiting | **slowapi** | FastAPI-native, IP-keyed, in-memory for dev, pluggable storage for prod |
+| Compression | **GZipMiddleware** (`minimum_size=1024`) | ~70 % smaller JSON for ranked-stations and prediction payloads |
+| Server cache | **In-process TTLCache** (`asyncio.Lock`, 5 min) | Hot `/recommendations` traffic short-circuits the DB + ORS pipeline; invalidated after every MITECO sync |
 | Frontend | **React 18 + Vite + TypeScript** | Fast HMR, strict TS config, modern JSX transform |
 | Styling | **Tailwind + shadcn/ui** | Utility-first with accessible Radix primitives |
 | Data fetching | **TanStack Query** | Cache, dedupe, `enabled` flag for lazy charts, retries, stale-while-revalidate |
@@ -166,9 +182,10 @@ sequenceDiagram
 
 ### Core
 - **Cost ranking** — haversine distance + the cost formula above, with configurable `K`, max distance, and result limit.
+- **Optional driving distance** — when `DISTANCE_MODE=DRIVING`, the top-N candidates (by haversine cost) go through the OpenRouteService Matrix API for real road distance and duration; otherwise haversine alone is used.
 - **Real-time data** — hourly upsert from MITECO keeps station metadata and current prices fresh; every sync also appends a row to `price_history` for ML training and charting.
 - **Interactive map** — Leaflet markers for every ranked station, centred on the user.
-- **Price history** — per-station chart (lazy-fetched only when the card is expanded, avoiding N requests on load).
+- **Price history** — per-station chart whose component (~300 KB Recharts) and data are *both* deferred until the user expands a card.
 
 ### AI / ML
 - **Training features** — hour-of-day, day-of-week, brand, province.
@@ -208,7 +225,7 @@ datafuel-main/
 ├── backend/
 │   ├── app/
 │   │   ├── api/v1/               # Routers + Pydantic schemas
-│   │   ├── core/                 # Settings, lifespan, scheduler, rate_limit
+│   │   ├── core/                 # Settings, lifespan, scheduler, rate_limit, cache, logging, middleware
 │   │   ├── domain/               # Entities + pure services (cost_calculator, prediction_service)
 │   │   ├── infrastructure/
 │   │   │   ├── database/         # SQLAlchemy models, session, base
@@ -252,8 +269,9 @@ uvicorn app.main:app --reload   # http://localhost:8000
 
 On startup the app:
 1. Creates DB tables (`Base.metadata.create_all`)
-2. Optionally runs a MITECO sync (controlled by `SYNC_ON_STARTUP`)
-3. Starts the hourly APScheduler job (`SCHEDULER_ENABLED`)
+2. Applies any pending Alembic migrations (`alembic upgrade head`, run in a worker thread so its internal `asyncio.run()` doesn't clash with the lifespan loop)
+3. Optionally runs a MITECO sync (controlled by `SYNC_ON_STARTUP`)
+4. Starts the hourly APScheduler job (`SCHEDULER_ENABLED`)
 
 ### Frontend
 
@@ -272,7 +290,7 @@ Vite proxies `/api/*` to `http://localhost:8000`, so CORS is not an issue in dev
 ### Backend
 
 ```bash
-pytest                   # 94 tests, 89% coverage (branch), enforced via --cov-fail-under=80
+pytest                   # 176 tests, 86% coverage (branch), enforced via --cov-fail-under=80
 ruff check app tests     # lint + import order (E, F, I, N, UP, B, A, C4, SIM, RUF)
 mypy app                 # strict mode, plugins=[pydantic.mypy]
 ```
@@ -280,7 +298,7 @@ mypy app                 # strict mode, plugins=[pydantic.mypy]
 Key choices:
 - **Integration tests** use `ASGITransport` + in-memory SQLite. No mocked DB. The test fixture re-creates schema per test for isolation.
 - **MITECO client** has a unit test that stubs `httpx` at the transport level — no real network calls in tests.
-- `lru_cache` instances (`get_settings`, `get_engine`, `get_session_factory`) are cleared by an `autouse` fixture so env overrides take effect per test.
+- `lru_cache` instances (`get_settings`, `get_engine`, `get_session_factory`) and the in-process `recommendations_cache` are reset by an `autouse` fixture so env overrides and cached responses don't leak across tests.
 
 ### Frontend
 
@@ -293,6 +311,20 @@ npm run build   # tsc -b && vite build
 
 - Recharts is module-mocked for jsdom (no real SVG rendering in tests).
 - Zustand stores are mocked via `vi.mocked(useStore).mockImplementation((selector) => selector(fakeState))` to keep tests selector-aware.
+
+---
+
+## Performance
+
+A focused optimisation pass moved the hot path off the slow rails. Each change keeps the API contract identical and is covered by tests.
+
+| Layer | Change | Why it matters |
+|---|---|---|
+| SQL | `StationRepository.find_candidates(fuel_type, bbox, radius_origin)` pushes the bounding-box / radius and the *fuel-availability* filter (`price_<fuel> IS NOT NULL`) into the `WHERE` clause. | Avoids hydrating the full `stations` table (~10 k rows in production) on every `/recommendations` call — the typical city-radius query returns 50–300 rows instead. |
+| ORS | When `DISTANCE_MODE=DRIVING`, candidates are first pre-ranked by haversine + price and only the top *N* (capped at 100) are sent to the OpenRouteService Matrix API. | Driving distance ≥ haversine, so the cheapest station is virtually guaranteed to live in the haversine top-N. Cuts ORS quota usage and latency by ~5× in dense areas. |
+| Cache | `app/core/cache.TTLCache` — async-safe (`asyncio.Lock`), 5-min TTL — keys every `/recommendations` request by its full param tuple. Invalidated after each `SyncService.run()`. | Same params return in <1 ms instead of triggering the full DB + ORS pipeline. Stale prices are impossible because the sync clears the cache. |
+| Wire | `GZipMiddleware(minimum_size=1024)`. | JSON payloads ≥1 KB shrink ~70 %; tiny error/health responses stay uncompressed. |
+| Bundle | Vite `manualChunks` splits `react-vendor`, `leaflet`, `recharts`, `radix`, `query`. Routes (`Settings`, `NotFound`) and `PriceHistoryChart` are `React.lazy`-loaded. | Initial JS drops from one ~480 KB chunk to ~310 KB cached vendors + ~85 KB app code. Recharts (~380 KB) only loads when a user expands a price-history card. |
 
 ---
 
@@ -329,10 +361,11 @@ A quick pass of the threat surface for this app:
 | 7 | Visualisations | Leaflet map with station markers |
 | 8 | AI predictions | `PredictionService` (Ridge pipeline), `/predictions` endpoint, UI badge |
 | 9 | Favourites & polish | Client-side favourites, expandable price-history chart (Recharts, lazy-fetched), skeletons |
+| 10 | Performance pass | SQL prefilter, ORS top-N pre-rank, TTL cache + sync invalidation, GZip, Vite manual chunks, lazy routes & lazy chart |
 
 </details>
 
-Post-roadmap hardening (security sweep): rate limiting, docs gating, strict type cleanup across backend + frontend.
+Post-roadmap hardening sweeps: **security** (rate limiting, docs gating, strict type cleanup), **observability** (request-id middleware + structured logging across backend and frontend), and **performance** (table above).
 
 ---
 
@@ -342,8 +375,8 @@ Post-roadmap hardening (security sweep): rate limiting, docs gating, strict type
 - **CI** — GitHub Actions matrix for pytest + vitest + ruff + mypy + type-check + build, plus Dependabot and CodeQL.
 - **Auth** — real accounts (JWT + refresh) to replace localStorage favourites and enable price alerts via email.
 - **Model** — XGBoost with more features (fuel category trends, national averages); evaluate with proper time-series CV.
-- **Caching** — Redis for rate-limit storage (so it survives multi-instance deploys) and for the MITECO response.
-- **Observability** — structured logging with OpenTelemetry traces, a `/metrics` Prometheus endpoint, and a Grafana dashboard.
+- **Caching** — promote the in-process `recommendations` cache and the slowapi limiter store to Redis so they survive across multi-instance deploys.
+- **Observability** — extend the existing request-id-tagged structured logs with OpenTelemetry traces, a `/metrics` Prometheus endpoint, and a Grafana dashboard.
 
 ---
 
