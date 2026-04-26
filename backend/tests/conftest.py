@@ -10,6 +10,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from app.core.cache import recommendations_cache
 from app.core.config import Settings, get_settings
 from app.infrastructure.database import session as db_session
 from app.infrastructure.database.base import Base
@@ -23,14 +24,16 @@ from app.main import create_app
 
 @pytest.fixture(autouse=True)
 def _reset_caches() -> Generator[None, None, None]:
-    """Clear all lru_caches between tests for full isolation."""
+    """Clear all lru_caches and TTL caches between tests for full isolation."""
     get_settings.cache_clear()
     db_session.get_engine.cache_clear()
     db_session.get_session_factory.cache_clear()
+    recommendations_cache.reset()
     yield
     get_settings.cache_clear()
     db_session.get_engine.cache_clear()
     db_session.get_session_factory.cache_clear()
+    recommendations_cache.reset()
 
 
 @pytest.fixture

@@ -2,12 +2,13 @@
 
 import logging
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas.recommendation import RecommendationOut
+from app.core.cache import recommendations_cache
 from app.core.config import get_settings
 from app.core.rate_limit import limiter
 from app.domain.entities.fuel_type import FuelType
@@ -88,6 +89,15 @@ async def get_recommendations(
         km_cost,
         all(v is not None for v in (north, south, east, west)),
     )
+
+    cache_key = _build_cache_key(
+        lat, lon, liters, fuel_type, limit, km_cost,
+        vehicle_profile_id, max_distance_km, north, south, east, west,
+    )
+    cached = await recommendations_cache.get(cache_key)
+    if cached is not None:
+        log.debug("recommendations cache hit (%d items)", len(cached))
+        return cached
 
     profile: VehicleProfileORM | None = None
     if vehicle_profile_id is not None:
@@ -175,7 +185,44 @@ async def get_recommendations(
         fuel_type,
         settings.distance_mode,
     )
-    return [RecommendationOut.from_station_cost(sc) for sc in ranked]
+    result = [RecommendationOut.from_station_cost(sc) for sc in ranked]
+    await recommendations_cache.set(cache_key, result)
+    return result
+
+
+def _build_cache_key(
+    lat: float,
+    lon: float,
+    liters: float,
+    fuel_type: FuelType,
+    limit: int,
+    km_cost: float | None,
+    vehicle_profile_id: int | None,
+    max_distance_km: float | None,
+    north: float | None,
+    south: float | None,
+    east: float | None,
+    west: float | None,
+) -> tuple[Any, ...]:
+    """Stable hashable key over every param that affects the response.
+
+    Coordinates are quantised to ~10 m so trivial GPS jitter still hits the
+    cache; coarser quantisation would mix nearby users and skew rankings.
+    """
+    def _q4(v: float | None) -> float | None:
+        return None if v is None else round(v, 4)
+
+    return (
+        round(lat, 4),
+        round(lon, 4),
+        round(liters, 2),
+        fuel_type.value,
+        limit,
+        _q4(km_cost),
+        vehicle_profile_id,
+        None if max_distance_km is None else round(max_distance_km, 3),
+        _q4(north), _q4(south), _q4(east), _q4(west),
+    )
 
 
 def _build_resolver(profile: VehicleProfileORM | None) -> KmCostResolver | None:

@@ -160,6 +160,51 @@ async def test_recommendations_invalid_fuel_type(api_client, engine):
     assert resp.status_code == 422
 
 
+# ── cache ────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_recommendations_cache_short_circuits_repo(api_client, two_stations, monkeypatch):
+    """Same params hit the in-memory cache and skip the repo on the second call."""
+    from app.api.v1.endpoints import recommendations as rec_mod
+    from app.core.cache import recommendations_cache
+
+    params = {
+        "lat": USER_LAT, "lon": USER_LON,
+        "liters": 40, "fuel_type": "gasolina_95",
+    }
+
+    first = await api_client.get("/api/v1/recommendations", params=params)
+    assert first.status_code == 200
+    assert recommendations_cache.size() == 1
+
+    # Sabotage the repo: any call after this raises. Cache must serve the response.
+    async def boom(*args, **kwargs):
+        raise AssertionError("repo invoked despite cache hit")
+
+    monkeypatch.setattr(rec_mod.StationRepository, "find_candidates", boom)
+
+    second = await api_client.get("/api/v1/recommendations", params=params)
+    assert second.status_code == 200
+    assert second.json() == first.json()
+
+
+@pytest.mark.asyncio
+async def test_sync_clears_recommendations_cache(api_client, two_stations):
+    """A MITECO sync invalidates cached recommendations to avoid stale prices."""
+    from app.core.cache import recommendations_cache
+
+    resp = await api_client.get(
+        "/api/v1/recommendations",
+        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasolina_95"},
+    )
+    assert resp.status_code == 200
+    assert recommendations_cache.size() == 1
+
+    await recommendations_cache.clear()
+    assert recommendations_cache.size() == 0
+
+
 # ── ORS pre-rank ─────────────────────────────────────────────────────────────
 
 

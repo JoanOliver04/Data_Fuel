@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.cache import recommendations_cache
 from app.infrastructure.external.miteco.client import MitecoClient, MitecoClientError
 from app.infrastructure.external.miteco.schemas import MitecoStation
 from app.repositories.price_repository import PriceRepository
@@ -54,6 +55,9 @@ class SyncService:
             await StationRepository(session).upsert_many(station_rows)
             await PriceRepository(session).insert_many(price_rows)
             await session.commit()
+
+        # Cached recommendations embed prices and rankings that are now stale.
+        await recommendations_cache.clear()
 
         result = SyncResult(
             stations_synced=len(station_rows),

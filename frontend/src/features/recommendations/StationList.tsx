@@ -1,14 +1,28 @@
-import { Car, Heart } from "lucide-react";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { Car, ChevronDown, ChevronUp, Heart, Info } from "lucide-react";
+import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { FavoriteButton } from "@/features/favorites/FavoriteButton";
+import { usePriceHistory } from "@/features/price-history/hooks";
 import { PredictionBadge } from "@/features/predictions/PredictionBadge";
 import { useSettingsStore } from "@/stores/settings.store";
 
 import { RecommendationSkeleton } from "./RecommendationSkeleton";
 import type { RecommendationItem } from "./types";
-import { formatDrivingSummary } from "./utils";
+import { formatDrivingSummary, formatRealCostTooltip } from "./utils";
+
+// Recharts (~300 KB) only loads after the user expands a card's history panel.
+const PriceHistoryChart = lazy(() =>
+  import("@/features/price-history/PriceHistoryChart").then((m) => ({
+    default: m.PriceHistoryChart,
+  })),
+);
 
 // ── Rank badge helpers ───────────────────────────────────────────────────────
 
@@ -38,6 +52,9 @@ const StationCard = memo(function StationCard({
   onHover,
 }: StationCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const hasProfile = useSettingsStore((s) => s.activeVehicleProfileId !== null);
+  const [showChart, setShowChart] = useState(false);
+  const { data: history } = usePriceHistory(item.station_id, item.fuel_type, showChart);
 
   useEffect(() => {
     if (isSelected && cardRef.current) {
@@ -91,7 +108,19 @@ const StationCard = memo(function StationCard({
           <p className="text-[18px] font-bold leading-none tabular-nums tracking-tight">
             {item.total_cost.toFixed(2)} €
           </p>
-          <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">total</p>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="mt-0.5 flex cursor-default items-center justify-end gap-0.5 text-[10px] font-medium text-muted-foreground">
+                  total
+                  <Info className="h-3 w-3" aria-hidden />
+                </p>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                {formatRealCostTooltip(item, hasProfile)}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
@@ -117,6 +146,43 @@ const StationCard = memo(function StationCard({
           </p>
         </div>
       </div>
+
+      {/* Price history toggle — stops propagation so it doesn't toggle the
+          card's select state when the user just wants to peek at the chart. */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowChart((p) => !p);
+        }}
+        aria-expanded={showChart}
+        aria-label="Mostrar historial de precios"
+        className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        {showChart ? (
+          <ChevronUp className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5" />
+        )}
+        {showChart ? "Ocultar historial" : "Ver historial de precios"}
+      </button>
+
+      {showChart && (
+        <div
+          className="mt-2 rounded-lg border bg-muted/30 p-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Suspense
+            fallback={
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                Cargando gráfica…
+              </p>
+            }
+          >
+            <PriceHistoryChart data={history ?? []} />
+          </Suspense>
+        </div>
+      )}
     </div>
   );
 });
