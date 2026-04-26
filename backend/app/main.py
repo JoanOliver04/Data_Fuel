@@ -4,6 +4,7 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -51,6 +52,10 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
     app.add_middleware(SlowAPIMiddleware)
+
+    # Compress JSON responses ≥1 KB. Recommendations/predictions payloads
+    # routinely hit tens of KB and shrink ~70% with gzip.
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
 
     # Request logging runs outermost so it sees the final status code (incl.
     # CORS/rate-limit responses) and tags every nested log with a request id.

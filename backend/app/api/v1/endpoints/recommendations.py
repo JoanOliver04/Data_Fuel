@@ -32,6 +32,15 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
+# When DRIVING mode is active, the ORS Matrix API is the bottleneck (network +
+# rate limits + paid quota). We pre-rank candidates by haversine + price and
+# only send the most promising subset to ORS. The driving distance ≥ haversine
+# always, so the cheapest station by driving cost is virtually guaranteed to
+# fall in the top-N by haversine cost when N is generous.
+_ORS_CANDIDATE_MULTIPLIER = 4
+_ORS_CANDIDATE_MIN = 30
+_ORS_CANDIDATE_MAX = 100
+
 
 @router.get("", response_model=list[RecommendationOut], summary="Rank stations by total cost")
 @limiter.limit(lambda: get_settings().geocoding_rate_limit)
@@ -92,24 +101,60 @@ async def get_recommendations(
     else:
         effective_km_cost = settings.default_km_cost
 
-    stations = await station_repo.list_all()
-    total_stations = len(stations)
-
-    # Pre-filter by bounding box when all four edges are provided
+    bbox: tuple[float, float, float, float] | None = None
     if north is not None and south is not None and east is not None and west is not None:
-        stations = [
-            s
-            for s in stations
-            if south <= s.latitude <= north and west <= s.longitude <= east
-        ]
-        log.debug(
-            "recommendations bbox filter: %d → %d stations",
-            total_stations,
-            len(stations),
+        bbox = (south, north, west, east)
+
+    radius_origin: tuple[float, float, float] | None = None
+    if bbox is None and max_distance_km is not None:
+        radius_origin = (lat, lon, max_distance_km)
+
+    stations = await station_repo.find_candidates(
+        fuel_type=fuel_type,
+        bbox=bbox,
+        radius_origin=radius_origin,
+    )
+    log.debug(
+        "recommendations SQL prefilter: %d stations (bbox=%s, radius=%s)",
+        len(stations),
+        bbox is not None,
+        radius_origin is not None,
+    )
+
+    resolver = _build_resolver(profile)
+
+    # ORS pre-filter: shrink candidate set to top-N by haversine cost so the
+    # Matrix call is bounded regardless of how many stations sit in the bbox.
+    mode = DistanceMode(settings.distance_mode)
+    if mode is DistanceMode.DRIVING and stations:
+        prelim_limit = min(
+            _ORS_CANDIDATE_MAX,
+            max(_ORS_CANDIDATE_MIN, limit * _ORS_CANDIDATE_MULTIPLIER),
         )
+        if len(stations) > prelim_limit:
+            prelim = rank_stations(
+                stations=stations,
+                fuel_type=fuel_type,
+                user_lat=lat,
+                user_lon=lon,
+                liters=liters,
+                km_cost=effective_km_cost,
+                max_distance_km=max_distance_km,
+                limit=prelim_limit,
+                distances=None,
+                km_cost_resolver=resolver,
+            )
+            candidate_ids = {sc.station_id for sc in prelim}
+            before = len(stations)
+            stations = [s for s in stations if s.id in candidate_ids]
+            log.debug(
+                "ORS pre-rank: %d → %d candidates (cap=%d)",
+                before,
+                len(stations),
+                prelim_limit,
+            )
 
     distances = await _compute_distances(settings, lat, lon, stations)
-    resolver = _build_resolver(profile)
 
     ranked = rank_stations(
         stations=stations,

@@ -158,3 +158,52 @@ async def test_recommendations_invalid_fuel_type(api_client, engine):
         params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "jet_fuel"},
     )
     assert resp.status_code == 422
+
+
+# ── ORS pre-rank ─────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_recommendations_prerank_caps_ors_destinations(
+    api_client, db, monkeypatch
+):
+    """When DRIVING mode is active and many stations sit in range, the ORS
+    Matrix call must receive a bounded subset (top-N by haversine cost),
+    not the full station list. Verifies the pre-rank guardrails."""
+    from app.api.v1.endpoints import recommendations as rec_mod
+    from app.core.config import get_settings
+
+    # Force DRIVING mode regardless of .env, isolated to this test.
+    monkeypatch.setenv("DISTANCE_MODE", "DRIVING")
+    monkeypatch.setenv("ORS_API_KEY", "dummy")
+    get_settings.cache_clear()
+
+    # 200 stations spread north of the user, all priced the same. With limit=10
+    # the pre-rank cap is max(30, 10*4) = 40, capped by _ORS_CANDIDATE_MAX=100.
+    stations = []
+    for i in range(200):
+        offset = (i + 1) * 0.005  # ~0.55 km steps north
+        stations.append(_station(1000 + i, USER_LAT + offset, USER_LON))
+    db.add_all(stations)
+    await db.commit()
+
+    received: list[int] = []
+
+    async def fake_compute_distances(settings, user_lat, user_lon, stations_arg):
+        received.append(len(stations_arg))
+        return None  # forces rank_stations to fall back to haversine
+
+    monkeypatch.setattr(rec_mod, "_compute_distances", fake_compute_distances)
+
+    resp = await api_client.get(
+        "/api/v1/recommendations",
+        params={
+            "lat": USER_LAT, "lon": USER_LON,
+            "liters": 40, "fuel_type": "gasolina_95",
+            "limit": 10,
+        },
+    )
+    assert resp.status_code == 200
+    assert received, "_compute_distances was not invoked"
+    # Must receive at most the pre-rank cap (40), not the full 200.
+    assert received[0] <= 40, f"_compute_distances got {received[0]} stations, expected ≤40"
