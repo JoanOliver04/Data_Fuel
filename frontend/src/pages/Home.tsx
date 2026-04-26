@@ -295,6 +295,8 @@ export function Home() {
               items={displayedItems}
               userLat={userLat}
               userLon={userLon}
+              {...(radius !== undefined ? { radiusKm: radius } : {})}
+              fuel={preferredFuel}
               selectedStationId={selectedStationId}
               hoveredStationId={hoveredStationId}
               isLoading={isLoading}

@@ -99,7 +99,7 @@ def rank_stations(
     fallback_km_cost_d = Decimal(str(km_cost))
 
     for station in stations:
-        price = _price_for(station, fuel_type)
+        price = price_for(station, fuel_type)
         if price is None:
             continue
 
@@ -167,7 +167,8 @@ def rank_stations(
     return results[:limit]
 
 
-def _price_for(station: StationORM, fuel_type: FuelType) -> Decimal | None:
+def price_for(station: StationORM, fuel_type: FuelType) -> Decimal | None:
+    """Return the denormalised current price for ``fuel_type`` on a station."""
     return {
         FuelType.GASOLINA_95: station.price_gasoline_95_e5,
         FuelType.GASOLINA_95_E10: station.price_gasoline_95_e10,
@@ -175,3 +176,5 @@ def _price_for(station: StationORM, fuel_type: FuelType) -> Decimal | None:
         FuelType.GASOIL: station.price_diesel_a,
         FuelType.GASOIL_PREMIUM: station.price_diesel_premium,
     }.get(fuel_type)
+
+

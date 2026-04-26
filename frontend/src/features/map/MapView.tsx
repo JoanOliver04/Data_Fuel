@@ -1,7 +1,7 @@
 import "leaflet/dist/leaflet.css";
 
 import { divIcon, type DivIcon, type LatLngBounds } from "leaflet";
-import { Loader2, MapPin } from "lucide-react";
+import { Flame, Loader2, MapPin } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   CircleMarker,
@@ -14,8 +14,12 @@ import {
 } from "react-leaflet";
 
 import { cn } from "@/lib/utils";
+import { HeatmapLayer } from "@/features/heatmap/HeatmapLayer";
+import { HeatmapLegend } from "@/features/heatmap/HeatmapLegend";
+import type { HeatmapParams } from "@/features/heatmap/types";
 import type { RecommendationItem } from "@/features/recommendations/types";
 import { formatDrivingSummary } from "@/features/recommendations/utils";
+import type { FuelType } from "@/types/fuel";
 
 // ── Icon factory ────────────────────────────────────────────────────────────
 
@@ -179,6 +183,10 @@ interface MapViewProps {
   items: RecommendationItem[];
   userLat: number;
   userLon: number;
+  /** Search radius in km — required to enable the price heatmap layer. */
+  radiusKm?: number;
+  /** Fuel type — required to enable the price heatmap layer. */
+  fuel?: FuelType;
   selectedStationId: number | null;
   hoveredStationId: number | null;
   isLoading: boolean;
@@ -191,6 +199,8 @@ export function MapView({
   items,
   userLat,
   userLon,
+  radiusKm,
+  fuel,
   selectedStationId,
   hoveredStationId,
   isLoading,
@@ -199,7 +209,13 @@ export function MapView({
   className,
 }: MapViewProps) {
   const [pendingBounds, setPendingBounds] = useState<LatLngBounds | null>(null);
+  const [heatmapMode, setHeatmapMode] = useState(false);
   const userPos: [number, number] = [userLat, userLon];
+
+  const heatmapParams: HeatmapParams | null =
+    heatmapMode && radiusKm !== undefined && fuel !== undefined
+      ? { lat: userLat, lon: userLon, radius_km: radiusKm, fuel }
+      : null;
 
   const handleMapMoved = useCallback((bounds: LatLngBounds) => {
     setPendingBounds(bounds);
@@ -248,17 +264,22 @@ export function MapView({
           <Popup>📍 Tu ubicación</Popup>
         </CircleMarker>
 
-        {/* Station markers */}
-        {items.map((item, i) => (
-          <StationMarker
-            key={item.station_id}
-            item={item}
-            rank={i + 1}
-            isSelected={selectedStationId === item.station_id}
-            isHovered={hoveredStationId === item.station_id}
-            onSelect={onStationSelect}
-          />
-        ))}
+        {/* Either station markers OR the price heatmap — never both, so the
+            map stays readable. */}
+        {heatmapParams !== null ? (
+          <HeatmapLayer params={heatmapParams} />
+        ) : (
+          items.map((item, i) => (
+            <StationMarker
+              key={item.station_id}
+              item={item}
+              rank={i + 1}
+              isSelected={selectedStationId === item.station_id}
+              isHovered={hoveredStationId === item.station_id}
+              onSelect={onStationSelect}
+            />
+          ))
+        )}
       </MapContainer>
 
       {/* "Search this area" overlay */}
@@ -279,9 +300,39 @@ export function MapView({
         </div>
       )}
 
-      {/* Loading indicator */}
+      {/* Heatmap toggle — only shown when the parent supplied the params
+          needed to fetch the layer (radius + fuel). */}
+      {radiusKm !== undefined && fuel !== undefined && (
+        <button
+          type="button"
+          onClick={() => setHeatmapMode((p) => !p)}
+          aria-pressed={heatmapMode}
+          aria-label="Mostrar mapa de calor de precios"
+          className={cn(
+            "absolute right-3 top-3 z-[500] flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-md ring-1 ring-border backdrop-blur-sm transition-colors",
+            heatmapMode
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "bg-background/95 text-foreground hover:bg-background",
+          )}
+        >
+          <Flame className="h-3.5 w-3.5" />
+          Heatmap
+        </button>
+      )}
+
+      {/* Heatmap legend — paired with the toggle so the colour meaning is
+          self-explanatory whenever the layer is on. */}
+      {heatmapMode && <HeatmapLegend />}
+
+      {/* Loading indicator — nudged below the toggle when the heatmap
+          control is rendered, otherwise it would overlap. */}
       {isLoading && (
-        <div className="absolute right-3 top-3 z-[500] rounded-full bg-background/90 p-2 shadow-md">
+        <div
+          className={cn(
+            "absolute right-3 z-[500] rounded-full bg-background/90 p-2 shadow-md",
+            radiusKm !== undefined && fuel !== undefined ? "top-14" : "top-3",
+          )}
+        >
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
         </div>
       )}
