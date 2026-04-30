@@ -8,6 +8,9 @@ import { Home } from "@/pages/Home";
 const Settings = lazy(() =>
   import("@/pages/Settings").then((m) => ({ default: m.Settings })),
 );
+const Simulator = lazy(() =>
+  import("@/pages/Simulator").then((m) => ({ default: m.Simulator })),
+);
 const NotFound = lazy(() =>
   import("@/pages/NotFound").then((m) => ({ default: m.NotFound })),
 );
@@ -29,6 +32,14 @@ export function AppRoutes() {
         element={
           <Suspense fallback={<RouteFallback />}>
             <Settings />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/simulator"
+        element={
+          <Suspense fallback={<RouteFallback />}>
+            <Simulator />
           </Suspense>
         }
       />

@@ -1,4 +1,4 @@
-import { Moon, Settings, Sun } from "lucide-react";
+import { Calculator, Moon, Settings, Sun } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -232,6 +232,16 @@ export function Home() {
                   <Moon className="h-4 w-4" />
                 )}
               </Button>
+              <Link to="/simulator">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Simulador de costes"
+                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                >
+                  <Calculator className="h-4 w-4" />
+                </Button>
+              </Link>
               <Link to="/settings">
                 <Button
                   variant="ghost"
