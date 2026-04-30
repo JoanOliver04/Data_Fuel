@@ -61,7 +61,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     if settings.sync_on_startup:
         log.info("Running initial MITECO sync on startup")
-        await sync_svc.run()
+        try:
+            await sync_svc.run()
+        except Exception:
+            log.exception("Initial MITECO sync failed — app continues without fresh data")
 
     scheduler = None
     if settings.scheduler_enabled:
