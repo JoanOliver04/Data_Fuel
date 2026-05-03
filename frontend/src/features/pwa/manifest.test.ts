@@ -39,4 +39,18 @@ describe("pwaManifest", () => {
       expect(icon.sizes).toMatch(/^(\d+)x\1$/);
     }
   });
+
+  it("ships at least one wide and one narrow screenshot for richer install UI", () => {
+    const screenshots = pwaManifest.screenshots ?? [];
+    const wide = screenshots.find((s) => s.form_factor === "wide");
+    const narrow = screenshots.find((s) => s.form_factor === "narrow");
+
+    expect(wide).toBeDefined();
+    expect(narrow).toBeDefined();
+    for (const shot of screenshots) {
+      expect(shot.src).toMatch(/^\//);
+      expect(shot.sizes).toMatch(/^\d+x\d+$/);
+      expect(shot.label).toBeTruthy();
+    }
+  });
 });

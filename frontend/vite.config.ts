@@ -19,6 +19,8 @@ export default defineConfig({
         "pwa-192x192.png",
         "pwa-512x512.png",
         "maskable-icon-512x512.png",
+        "screenshot-wide.svg",
+        "screenshot-narrow.svg",
       ],
       manifest: pwaManifest,
       workbox: {
@@ -94,6 +96,15 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
+  },
+  preview: {
+    port: 4173,
     proxy: {
       "/api": {
         target: "http://localhost:8000",

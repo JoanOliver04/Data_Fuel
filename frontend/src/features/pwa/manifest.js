@@ -37,4 +37,20 @@ export var pwaManifest = {
             purpose: "maskable",
         },
     ],
+    screenshots: [
+        {
+            src: "/screenshot-wide.svg",
+            sizes: "1280x720",
+            type: "image/svg+xml",
+            form_factor: "wide",
+            label: "Data Fuel — vista escritorio con mapa y comparativa de gasolineras",
+        },
+        {
+            src: "/screenshot-narrow.svg",
+            sizes: "720x1280",
+            type: "image/svg+xml",
+            form_factor: "narrow",
+            label: "Data Fuel — vista móvil con mapa y panel inferior",
+        },
+    ],
 };
