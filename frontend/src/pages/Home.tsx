@@ -5,6 +5,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { HealthBadge } from "@/features/health/HealthBadge";
 import { MapView, type MapBBox } from "@/features/map/MapView";
+import { InstallPrompt } from "@/features/pwa/InstallPrompt";
+import { StandaloneBadge } from "@/features/pwa/StandaloneBadge";
 import { SearchBar } from "@/features/search/SearchBar";
 import { FiltersBar } from "@/features/search/FiltersBar";
 import { useRecommendations } from "@/features/recommendations/hooks";
@@ -217,6 +219,7 @@ export function Home() {
                 </h1>
               </div>
               <HealthBadge />
+              <StandaloneBadge />
             </div>
             <div className="flex items-center gap-0.5">
               <Button
@@ -357,6 +360,8 @@ export function Home() {
           </div>
         </div>
       </div>
+
+      <InstallPrompt />
     </div>
   );
 }

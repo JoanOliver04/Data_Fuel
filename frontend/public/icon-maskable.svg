@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Data Fuel">
+  <rect width="512" height="512" fill="#2563EB"/>
+  <g transform="translate(102 102) scale(0.602)">
+    <path d="M256 96 Q 384 240 384 336 a 128 128 0 0 1 -256 0 Q 128 240 256 96 Z" fill="#FFFFFF"/>
+    <circle cx="216" cy="316" r="36" fill="#2563EB" fill-opacity="0.22"/>
+  </g>
+</svg>

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563EB" />
+    <title>Sin conexión · Data Fuel</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f8fc;
+        --fg: #0b1220;
+        --muted: #64748b;
+        --primary: #2563eb;
+        --card: #ffffff;
+        --border: #e2e8f0;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0a1020;
+          --fg: #e2e8f0;
+          --muted: #94a3b8;
+          --primary: #60a5fa;
+          --card: #0f172a;
+          --border: #1e293b;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        font-family: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        padding: 1.5rem;
+      }
+      .card {
+        max-width: 26rem;
+        text-align: center;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 1.25rem;
+        padding: 2.25rem 1.75rem;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      }
+      .icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 1rem;
+        border-radius: 18px;
+        background: var(--primary);
+        display: grid;
+        place-items: center;
+        font-size: 2rem;
+      }
+      h1 { font-size: 1.25rem; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+      p { color: var(--muted); margin: 0 0 1.25rem; line-height: 1.5; font-size: 0.95rem; }
+      button {
+        font: inherit;
+        font-weight: 600;
+        background: var(--primary);
+        color: white;
+        border: 0;
+        padding: 0.7rem 1.25rem;
+        border-radius: 0.75rem;
+        cursor: pointer;
+      }
+      button:hover { filter: brightness(1.05); }
+      .hint { margin-top: 1rem; font-size: 0.8rem; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <main class="card" role="alert" aria-live="polite">
+      <div class="icon" aria-hidden="true">⛽</div>
+      <h1>Sin conexión</h1>
+      <p>No hemos podido conectar. Mostramos los últimos resultados guardados cuando vuelvas a estar online.</p>
+      <button type="button" onclick="location.reload()">Reintentar</button>
+      <p class="hint">Data Fuel funciona offline con la última búsqueda en caché.</p>
+    </main>
+  </body>
+</html>
