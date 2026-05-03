@@ -25,14 +25,18 @@ describe("pwaManifest", () => {
     expect(maskable).toBeDefined();
   });
 
-  it("ships icons covering 192x192 and 512x512", () => {
+  it("ships square PNG icons covering 192x192 and 512x512", () => {
     const icons = pwaManifest.icons ?? [];
     expect(icons.length).toBeGreaterThan(0);
+
+    const sizes = icons.map((i) => i.sizes);
+    expect(sizes).toContain("192x192");
+    expect(sizes).toContain("512x512");
+
     for (const icon of icons) {
-      expect(icon.sizes).toContain("192x192");
-      expect(icon.sizes).toContain("512x512");
-      expect(icon.type).toBe("image/svg+xml");
+      expect(icon.type).toBe("image/png");
       expect(icon.src).toMatch(/^\//);
+      expect(icon.sizes).toMatch(/^(\d+)x\1$/);
     }
   });
 });
