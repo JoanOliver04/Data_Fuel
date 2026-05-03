@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 export interface BeforeInstallPromptEvent extends Event {
   readonly platforms: ReadonlyArray<string>;
@@ -6,27 +6,35 @@ export interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
 }
 
-export const INSTALL_DISMISSED_KEY = "datafuel:pwa-install-dismissed";
+// Versioned key — bump the prefix if the dismissal semantics change.
+export const INSTALL_DISMISSED_KEY = "datafuel:v1:pwa-install-dismissed";
 
-function isStandaloneNow(): boolean {
+const STANDALONE_QUERY = "(display-mode: standalone)";
+
+function subscribeStandalone(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const mql = window.matchMedia(STANDALONE_QUERY);
+  mql.addEventListener?.("change", onChange);
+  return () => mql.removeEventListener?.("change", onChange);
+}
+
+function getStandaloneSnapshot(): boolean {
   if (typeof window === "undefined") return false;
-  if (window.matchMedia?.("(display-mode: standalone)").matches) return true;
+  if (window.matchMedia?.(STANDALONE_QUERY).matches) return true;
   const nav = window.navigator as Navigator & { standalone?: boolean };
   return nav.standalone === true;
 }
 
+function getStandaloneServerSnapshot(): boolean {
+  return false;
+}
+
 export function useStandaloneMode(): boolean {
-  const [standalone, setStandalone] = useState<boolean>(isStandaloneNow);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mql = window.matchMedia("(display-mode: standalone)");
-    const handler = (e: MediaQueryListEvent) => setStandalone(e.matches);
-    mql.addEventListener?.("change", handler);
-    return () => mql.removeEventListener?.("change", handler);
-  }, []);
-
-  return standalone;
+  return useSyncExternalStore(
+    subscribeStandalone,
+    getStandaloneSnapshot,
+    getStandaloneServerSnapshot,
+  );
 }
 
 interface InstallPromptState {

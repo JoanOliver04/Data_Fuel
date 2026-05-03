@@ -1,6 +1,7 @@
 import type { ManifestOptions } from "vite-plugin-pwa";
 
 export const pwaManifest: Partial<ManifestOptions> = {
+  id: "/?source=pwa",
   name: "Data Fuel",
   short_name: "DataFuel",
   description:
@@ -12,6 +13,7 @@ export const pwaManifest: Partial<ManifestOptions> = {
   start_url: "/",
   scope: "/",
   lang: "es",
+  dir: "ltr",
   categories: ["navigation", "travel", "utilities"],
   icons: [
     {

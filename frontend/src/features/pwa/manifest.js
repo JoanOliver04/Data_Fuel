@@ -1,4 +1,5 @@
 export var pwaManifest = {
+    id: "/?source=pwa",
     name: "Data Fuel",
     short_name: "DataFuel",
     description: "Encuentra la gasolinera más rentable según precio, distancia y consumo.",
@@ -9,6 +10,7 @@ export var pwaManifest = {
     start_url: "/",
     scope: "/",
     lang: "es",
+    dir: "ltr",
     categories: ["navigation", "travel", "utilities"],
     icons: [
         {

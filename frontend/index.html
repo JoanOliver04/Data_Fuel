@@ -12,7 +12,35 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="DataFuel" />
-    <title>Data Fuel</title>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Data Fuel" />
+    <meta property="og:title" content="Data Fuel — la gasolinera más rentable cerca de ti" />
+    <meta property="og:description" content="Compara precio, distancia y consumo real para elegir la gasolinera más barata según tu coche." />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:image" content="/pwa-512x512.png" />
+
+    <!-- Twitter card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Data Fuel" />
+    <meta name="twitter:description" content="Encuentra la gasolinera más rentable según precio, distancia y consumo." />
+    <meta name="twitter:image" content="/pwa-512x512.png" />
+
+    <title>Data Fuel — gasolinera más rentable cerca de ti</title>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Data Fuel",
+        "applicationCategory": "TravelApplication",
+        "operatingSystem": "Web, Android, iOS",
+        "description": "Encuentra la gasolinera más rentable según precio, distancia y consumo real.",
+        "inLanguage": "es-ES",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

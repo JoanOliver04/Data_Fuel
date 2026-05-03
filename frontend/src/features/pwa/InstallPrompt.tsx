@@ -17,10 +17,12 @@ export function InstallPrompt({ className }: InstallPromptProps) {
     <div
       role="region"
       aria-label="Instalar Data Fuel"
+      aria-live="polite"
       className={cn(
         "pointer-events-auto fixed inset-x-0 bottom-3 z-50 mx-auto flex max-w-md items-center gap-3",
         "rounded-2xl border border-border bg-background/95 px-4 py-3 shadow-2xl shadow-black/10 backdrop-blur-xl",
         "supports-[backdrop-filter]:bg-background/80 dark:shadow-black/40",
+        "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300",
         className,
       )}
     >

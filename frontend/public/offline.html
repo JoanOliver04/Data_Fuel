@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#2563EB" />
+    <meta name="robots" content="noindex,nofollow" />
     <title>Sin conexión · Data Fuel</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
@@ -67,8 +68,17 @@
         padding: 0.7rem 1.25rem;
         border-radius: 0.75rem;
         cursor: pointer;
+        min-height: 44px;
+        outline: none;
+        touch-action: manipulation;
       }
       button:hover { filter: brightness(1.05); }
+      button:focus-visible {
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 45%, transparent);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * { transition: none !important; animation: none !important; }
+      }
       .hint { margin-top: 1rem; font-size: 0.8rem; color: var(--muted); }
     </style>
   </head>
