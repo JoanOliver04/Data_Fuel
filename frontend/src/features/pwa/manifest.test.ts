@@ -51,6 +51,7 @@ describe("pwaManifest", () => {
       expect(shot.src).toMatch(/^\//);
       expect(shot.sizes).toMatch(/^\d+x\d+$/);
       expect(shot.label).toBeTruthy();
+      expect(shot.type).toBe("image/png");
     }
   });
 });

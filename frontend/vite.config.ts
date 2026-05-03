@@ -19,8 +19,8 @@ export default defineConfig({
         "pwa-192x192.png",
         "pwa-512x512.png",
         "maskable-icon-512x512.png",
-        "screenshot-wide.svg",
-        "screenshot-narrow.svg",
+        "screenshot-wide.png",
+        "screenshot-narrow.png",
       ],
       manifest: pwaManifest,
       workbox: {

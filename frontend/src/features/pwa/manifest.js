@@ -39,16 +39,16 @@ export var pwaManifest = {
     ],
     screenshots: [
         {
-            src: "/screenshot-wide.svg",
+            src: "/screenshot-wide.png",
             sizes: "1280x720",
-            type: "image/svg+xml",
+            type: "image/png",
             form_factor: "wide",
             label: "Data Fuel — vista escritorio con mapa y comparativa de gasolineras",
         },
         {
-            src: "/screenshot-narrow.svg",
+            src: "/screenshot-narrow.png",
             sizes: "720x1280",
-            type: "image/svg+xml",
+            type: "image/png",
             form_factor: "narrow",
             label: "Data Fuel — vista móvil con mapa y panel inferior",
         },
