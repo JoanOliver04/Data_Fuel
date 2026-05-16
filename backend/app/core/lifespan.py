@@ -14,7 +14,12 @@ from app.core.config import get_settings
 from app.core.scheduler import create_scheduler
 from app.domain.services.prediction_service import PredictionService
 from app.infrastructure.database import Base, get_engine, get_session_factory
-from app.infrastructure.database.models import PriceHistoryORM, StationORM, VehicleProfileORM  # noqa: F401
+from app.infrastructure.database.models import (  # noqa: F401
+    PriceHistoryORM,
+    StationORM,
+    VehicleProfileORM,
+)
+from app.ml.inference.model_loader import load_modelo
 from app.services.sync_service import SyncService
 
 log = logging.getLogger(__name__)
@@ -58,6 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     sync_svc = SyncService(session_factory)
 
     app.state.prediction_service = PredictionService()
+    load_modelo()
 
     if settings.sync_on_startup:
         log.info("Running initial MITECO sync on startup")

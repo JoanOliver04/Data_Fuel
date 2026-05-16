@@ -1,4 +1,4 @@
-"""Predictions endpoint: 48h price forecast for a given station and fuel type."""
+"""Predictions endpoint: 48h Ridge forecast + AI RF refuel-advice."""
 
 import logging
 
@@ -6,13 +6,16 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas.prediction import PredictionOut
+from app.api.v1.schemas.recommendation import RecommendationRequest, RecommendationResponse
 from app.core.config import get_settings
 from app.core.rate_limit import limiter
 from app.domain.entities.fuel_type import FuelType
 from app.domain.services.prediction_service import PredictionService, TrainingRow
 from app.infrastructure.database.session import get_async_session
+from app.ml.inference.model_loader import get_modelo
 from app.repositories.price_repository import PriceRepository
 from app.repositories.station_repository import StationRepository
+from app.services.recommendation_service import generar_recomendacion
 
 log = logging.getLogger(__name__)
 
@@ -86,3 +89,26 @@ async def get_prediction(
         )
 
     return PredictionOut.from_result(station_id, fuel_type, result)
+
+
+@router.post(
+    "/recommendation",
+    response_model=RecommendationResponse,
+    summary="AI refuel-advice: refuel now or wait?",
+)
+@limiter.limit("5/minute")
+async def post_recommendation(
+    request: Request,
+    payload: RecommendationRequest,
+) -> RecommendationResponse:
+    if get_modelo() is None:
+        raise HTTPException(status_code=503, detail="AI model not loaded")
+    result = generar_recomendacion(
+        lat=payload.lat,
+        lon=payload.lon,
+        fuel_type=payload.fuel_type,
+        municipio=payload.municipio,
+        comarca=payload.comarca,
+        precio_actual=payload.precio_actual,
+    )
+    return RecommendationResponse(**result)

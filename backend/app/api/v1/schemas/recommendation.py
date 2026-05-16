@@ -1,11 +1,12 @@
-"""API response schema for the recommendations endpoint."""
+"""API schemas for recommendations: station ranking and AI refuel advice."""
 
 from __future__ import annotations
 
 import dataclasses
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.domain.entities.fuel_type import FuelType
 from app.domain.entities.vehicle_profile import ConsumptionMode
@@ -38,3 +39,28 @@ class RecommendationOut(BaseModel):
     @classmethod
     def from_station_cost(cls, sc: StationCost) -> RecommendationOut:
         return cls(**dataclasses.asdict(sc))
+
+
+# ── AI refuel-advice schemas ───────────────────────────────────────────────────
+
+
+class RecommendationRequest(BaseModel):
+    """Input for the AI refuel-advice endpoint."""
+
+    lat: float = Field(ge=-90, le=90, description="User latitude (WGS84)")
+    lon: float = Field(ge=-180, le=180, description="User longitude (WGS84)")
+    fuel_type: FuelType
+    municipio: str
+    comarca: str
+    precio_actual: float = Field(gt=0, description="Current fuel price at the station (€/L)")
+
+
+class RecommendationResponse(BaseModel):
+    """AI refuel-advice response from the Random Forest model."""
+
+    veredicto: Literal["REPOSTA AHORA", "ESPERA"]
+    precio_actual: float
+    precio_predicho: float
+    variacion_pct: float
+    advice: str
+    confianza: float

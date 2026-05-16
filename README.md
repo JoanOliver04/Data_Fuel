@@ -330,6 +330,50 @@ Both scripts are idempotent. Output CSV is written to `backend/data/datos.csv`; 
 
 ---
 
+## AI Recommendation button
+
+The **Recomendación IA** button appears in the sidebar (desktop) and the mobile bottom sheet once station results are loaded. One click sends the current location, fuel type, and cheapest station's price to the backend and returns an instant refuel-or-wait verdict.
+
+<!-- IMAGE: screenshot of the AI button and AiAdviceCard — place a screenshot here -->
+
+### User flow
+
+1. User searches for stations (GPS or city search)
+2. **"Recomendación IA"** button appears below the Ridge SmartAdvice card
+3. User clicks → spinner → verdict card animates in above the station list
+4. Card shows: current price · predicted price · % change · advice text · model confidence
+5. Card can be dismissed with the × button; it resets when the location changes
+
+### Pipeline
+
+```
+price_history (SQLite)
+  └─ exportar_datos_csv.py   → data/datos.csv        (8 cols, ~400 k rows)
+       └─ entrenar.py         → artifacts/modelo_combustible.pkl  (Random Forest)
+            └─ model_loader.py (FastAPI startup)
+                 └─ POST /api/v1/predictions/recommendation
+                      └─ AiRecommendationButton → AiAdviceCard
+```
+
+### Visual variants
+
+| Veredicto | Color | Icon | Meaning |
+|-----------|-------|------|---------|
+| **REPOSTA AHORA** | Emerald green | ✓ CheckCircle | Price predicted to rise — refuel before it gets more expensive |
+| **ESPERA** | Amber | ⏳ Clock | Price predicted to fall — wait for a lower price |
+
+### Difference from the Ridge badge
+
+| | Ridge badge (existing) | Random Forest button (new) |
+|---|---|---|
+| Trigger | Automatic on each card | User-initiated |
+| Scope | Per station, 48 h ahead | Comarca-level, 7 days ahead |
+| Model | Ridge regression | Random Forest (100 trees) |
+| Output | `predicted_price`, `direction` | `REPOSTA AHORA` / `ESPERA` veredicto |
+| Purpose | Card badge (fast, lightweight) | Main AI recommendation button |
+
+---
+
 ## Testing & quality
 
 ### Backend

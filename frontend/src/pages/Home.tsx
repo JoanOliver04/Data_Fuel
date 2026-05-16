@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { AiAdviceCard } from "@/features/ai-recommendation/components/AiAdviceCard";
+import { AiRecommendationButton } from "@/features/ai-recommendation/components/AiRecommendationButton";
+import type { AiRecommendationResponse } from "@/features/ai-recommendation/types";
 import { HealthBadge } from "@/features/health/HealthBadge";
 import { MapView, type MapBBox } from "@/features/map/MapView";
 import { InstallPrompt } from "@/features/pwa/InstallPrompt";
@@ -132,9 +135,11 @@ export function Home() {
   } = useSearchStore();
 
   const [boundsBBox, setBoundsBBox] = useState<MapBBox | null>(null);
+  const [aiResult, setAiResult] = useState<AiRecommendationResponse | null>(null);
 
   useEffect(() => {
     setBoundsBBox(null);
+    setAiResult(null);
   }, [userLat, userLon]);
 
   const searchParams = useMemo<RecommendationParams | null>(() => {
@@ -197,6 +202,8 @@ export function Home() {
 
     return items;
   }, [data, filterBrands, filterOpenNow, sortBy]);
+
+  const aiStation = processedData?.[0] ?? null;
 
   const handleSearchArea = useCallback((bbox: MapBBox) => {
     setBoundsBBox(bbox);
@@ -271,6 +278,21 @@ export function Home() {
               <div className="shrink-0 px-4 pt-4">
                 <SmartAdviceCard params={smartAdviceParams} />
               </div>
+              {aiStation && (
+                <div className="shrink-0 px-4 pt-2">
+                  <AiRecommendationButton
+                    municipio={aiStation.municipality}
+                    comarca="Sin Comarca"
+                    precioActual={aiStation.price_per_liter}
+                    onResult={setAiResult}
+                  />
+                </div>
+              )}
+              {aiResult && (
+                <div className="shrink-0 px-4 pt-2">
+                  <AiAdviceCard response={aiResult} onDismiss={() => setAiResult(null)} />
+                </div>
+              )}
               {!hasVehicleProfile && (
                 <div className="shrink-0 px-4 pt-2">
                   <VehicleProfileBanner />
@@ -340,6 +362,21 @@ export function Home() {
               {smartAdviceParams && (
                 <div className="px-4 pt-3">
                   <SmartAdviceCard params={smartAdviceParams} />
+                </div>
+              )}
+              {aiStation && (
+                <div className="px-4 pt-2">
+                  <AiRecommendationButton
+                    municipio={aiStation.municipality}
+                    comarca="Sin Comarca"
+                    precioActual={aiStation.price_per_liter}
+                    onResult={setAiResult}
+                  />
+                </div>
+              )}
+              {aiResult && (
+                <div className="px-4 pt-2">
+                  <AiAdviceCard response={aiResult} onDismiss={() => setAiResult(null)} />
                 </div>
               )}
               {!hasVehicleProfile && (
