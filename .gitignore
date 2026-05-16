@@ -50,6 +50,10 @@ dist/
 *.sqlite3
 *.db
 
+# ─── ML artifacts (generated — regenerate with scripts/) ──
+backend/data/datos.csv
+backend/artifacts/*.pkl
+
 # ─── IDE / Editors ────────────────────────────────────────
 .vscode/settings.json
 .vscode/launch.json
