@@ -3,8 +3,12 @@
 Usage (run from backend/):
     python scripts/exportar_datos_csv.py
 
-Output columns (strict order, no precio_prox_semana yet — added in F1.4):
-    fecha, precio, municipio, distancia, tipo_combustible, comarca, dia_de_la_semana
+Output columns (strict order):
+    fecha, precio, municipio, distancia, tipo_combustible, comarca,
+    dia_de_la_semana, precio_prox_semana
+
+precio_prox_semana is the price of the same station+fuel 7 days later.
+Rows without a match (last 7 days of history) are dropped.
 """
 
 from __future__ import annotations
@@ -25,10 +29,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 # Allow `app.*` imports when executed as a top-level script from backend/
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.infrastructure.database.models.price_history import PriceHistoryORM  # noqa: E402
-from app.infrastructure.database.models.station import StationORM  # noqa: E402
-from app.infrastructure.database.session import get_session_factory  # noqa: E402
-from app.ml.data.fuel_type_mapping import FUEL_TYPE_TO_ID, resolve_fuel_type  # noqa: E402
+from app.infrastructure.database.models.price_history import PriceHistoryORM
+from app.infrastructure.database.models.station import StationORM
+from app.infrastructure.database.session import get_session_factory
+from app.ml.data.fuel_type_mapping import FUEL_TYPE_TO_ID, resolve_fuel_type
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -45,6 +49,7 @@ COLUMN_ORDER: list[str] = [
     "tipo_combustible",
     "comarca",
     "dia_de_la_semana",
+    "precio_prox_semana",
 ]
 
 logging.basicConfig(
@@ -81,6 +86,7 @@ async def _fetch_all(factory: async_sessionmaker[AsyncSession]) -> list[Any]:
     async with factory() as session:
         stmt = (
             select(
+                PriceHistoryORM.station_id,
                 PriceHistoryORM.recorded_at,
                 PriceHistoryORM.price,
                 PriceHistoryORM.fuel_type,
@@ -128,6 +134,7 @@ async def _run(
         municipio = str(row.municipality)
 
         records.append({
+            "_station_id": int(row.station_id),
             "fecha": recorded_at.date(),
             "precio": float(row.price),
             "municipio": municipio,
@@ -140,8 +147,26 @@ async def _run(
     if skipped:
         log.warning("Skipped %d rows with unrecognised fuel_type values", skipped)
 
-    df = pd.DataFrame(records, columns=COLUMN_ORDER)
-    log.info("DataFrame shape: %d rows × %d columns", len(df), len(df.columns))
+    df = pd.DataFrame(records)
+    df["fecha"] = pd.to_datetime(df["fecha"])
+    log.info("Rows fetched: %d", len(df))
+
+    # Self-join: for each row find the price of the same station+fuel 7 days later.
+    # Aggregate to one representative price per (station, fuel, date) before merging
+    # to avoid a cartesian product when multiple recordings exist on the same day.
+    df_next = (
+        df.groupby(["_station_id", "tipo_combustible", "fecha"], as_index=False)["precio"]
+        .mean()
+        .rename(columns={"precio": "precio_prox_semana"})
+    )
+    df_next["fecha"] = df_next["fecha"] - pd.Timedelta(days=7)
+
+    df = df.merge(df_next, on=["_station_id", "tipo_combustible", "fecha"], how="left")
+    df = df.drop(columns=["_station_id"]).dropna(subset=["precio_prox_semana"])
+    log.info("Rows after dropping last-7-days (no future price): %d", len(df))
+
+    df = df[COLUMN_ORDER]
+    log.info("DataFrame shape: %d rows x %d columns", len(df), len(df.columns))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False, encoding="utf-8")

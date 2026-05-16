@@ -28,8 +28,7 @@ _COLUMNS_7 = [
 ]
 _COLUMNS_8 = [*_COLUMNS_7, "precio_prox_semana"]
 
-# After F1.4, switch this to "precio_prox_semana".
-TARGET_COLUMN = "precio"
+TARGET_COLUMN = "precio_prox_semana"
 
 MIN_ROWS: int = 100
 

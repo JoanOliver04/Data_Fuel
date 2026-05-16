@@ -285,6 +285,51 @@ Vite proxies `/api/*` to `http://localhost:8000`, so CORS is not an issue in dev
 
 ---
 
+## Training the AI model
+
+The AI recommendation feature uses a **Random Forest regressor** trained on historical price data to predict `precio_prox_semana` (price one week ahead). The model is kept separate from the Ridge-based per-station badge already in the app.
+
+### Pipeline overview
+
+```
+SQLite (price_history + stations)
+  → exportar_datos_csv.py   →  backend/data/datos.csv  (8 columns)
+  → entrenar.py             →  backend/artifacts/modelo_combustible.pkl
+  → model_loader.py         →  loaded at FastAPI startup
+  → /api/v1/predictions/recommendation  →  AiAdviceCard (frontend)
+```
+
+### Commands
+
+```bash
+cd datafuel-main/backend
+
+# 1. Export historical data from SQLite to CSV (run after new data is collected)
+python scripts/exportar_datos_csv.py
+
+# 2. Train the Random Forest model
+python -m app.ml.training.entrenar
+```
+
+Both scripts are idempotent. Output CSV is written to `backend/data/datos.csv`; the artifact to `backend/artifacts/modelo_combustible.pkl`.
+
+### When to retrain
+
+- **Weekly** — after each 7-day accumulation window so the target variable (`precio_prox_semana`) covers recent price movements.
+- **After a significant price event** — e.g. a sudden national price spike.
+- Minimum viable dataset: **100 rows**; validation raises `ValueError` with a clear message otherwise.
+
+### Difference vs the Ridge badge
+
+| | Ridge (`/predictions/{id}/{fuel}`) | Random Forest (`/predictions/recommendation`) |
+|---|---|---|
+| Scope | Per-station, 48 h ahead | Comarca-level, 7 days ahead |
+| Input | Price history of a single station | User coordinates + fuel type |
+| Output | `predicted_price`, `direction` | `REPOSTA AHORA` / `ESPERA` veredicto |
+| Purpose | Card badge (fast, lightweight) | Main AI recommendation button |
+
+---
+
 ## Testing & quality
 
 ### Backend
