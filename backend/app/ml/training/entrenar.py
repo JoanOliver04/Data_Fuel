@@ -16,7 +16,7 @@ from sklearn.preprocessing import LabelEncoder
 
 logger = logging.getLogger(__name__)
 
-# Expected CSV layout (post-Pizarra B): 11 columns in this strict order.
+# Expected CSV layout (post-self-engineered features): 17 columns, strict order.
 _COLUMNS_EXPECTED = [
     "fecha",
     "precio",
@@ -28,6 +28,12 @@ _COLUMNS_EXPECTED = [
     "es_festivo",
     "precio_semana_anterior",
     "tendencia_ultimos_30_dias",
+    "is_low_cost",
+    "mes",
+    "precio_medio_municipio",
+    "es_autopista",
+    "precio_vs_media_comarca",
+    "momentum_7d",
     "precio_prox_semana",
 ]
 
@@ -43,7 +49,12 @@ FEATURE_COLUMNS: list[str] = [
     "es_festivo",
     "precio_semana_anterior",
     "tendencia_ultimos_30_dias",
+    "is_low_cost",
     "mes",
+    "precio_medio_municipio",
+    "es_autopista",
+    "precio_vs_media_comarca",
+    "momentum_7d",
     "año",
     "municipio_enc",
     "comarca_enc",
@@ -129,7 +140,9 @@ def _load_and_validate(path: Path, min_rows: int) -> pd.DataFrame:
         )
 
     df["es_festivo"] = df["es_festivo"].astype(int)
-    df["mes"] = df["fecha"].dt.month
+    df["is_low_cost"] = df["is_low_cost"].astype(int)
+    df["es_autopista"] = df["es_autopista"].astype(int)
+    df["mes"] = df["mes"].astype(int)
     df["año"] = df["fecha"].dt.year
     return df
 

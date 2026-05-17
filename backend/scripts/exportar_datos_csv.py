@@ -3,15 +3,23 @@
 Usage (run from backend/):
     python scripts/exportar_datos_csv.py
 
-Output columns (strict order):
+Output columns (strict order, 17 total):
     fecha, precio, municipio, distancia, tipo_combustible, comarca,
     dia_de_la_semana, es_festivo, precio_semana_anterior,
-    tendencia_ultimos_30_dias, precio_prox_semana
+    tendencia_ultimos_30_dias, is_low_cost, mes, precio_medio_municipio,
+    es_autopista, precio_vs_media_comarca, momentum_7d, precio_prox_semana
 
-- precio_prox_semana: price of the same station+fuel 7 days later.
+Derived features:
+- es_festivo: 1 if weekend (sat/sun) or Spanish fixed national holiday, else 0.
 - precio_semana_anterior: price of the same station+fuel 7 days earlier.
 - tendencia_ultimos_30_dias: precio - rolling 30-day mean (same station+fuel).
-- es_festivo: 1 if weekend (sat/sun) or Spanish fixed national holiday, else 0.
+- is_low_cost: 1 if station brand matches a known low-cost label, else 0.
+- mes: month number (1-12) extracted from fecha.
+- precio_medio_municipio: mean price that day for (municipio, fuel).
+- es_autopista: 1 if brand/address contains a highway pattern, else 0.
+- precio_vs_media_comarca: precio - mean price that day for (comarca, fuel).
+- momentum_7d: precio - precio_semana_anterior (short-term velocity).
+- precio_prox_semana: price of the same station+fuel 7 days later (target).
 
 Rows without precio_prox_semana (last 7 days) or precio_semana_anterior
 (first 7 days) are dropped.
@@ -58,6 +66,12 @@ COLUMN_ORDER: list[str] = [
     "es_festivo",
     "precio_semana_anterior",
     "tendencia_ultimos_30_dias",
+    "is_low_cost",
+    "mes",
+    "precio_medio_municipio",
+    "es_autopista",
+    "precio_vs_media_comarca",
+    "momentum_7d",
     "precio_prox_semana",
 ]
 
@@ -74,6 +88,28 @@ _HOLIDAYS_ES_FIXED: frozenset[tuple[int, int]] = frozenset({
     (12, 8),   # Inmaculada
     (12, 25),  # Navidad
 })
+
+# Known low-cost brand labels (substring match, case-insensitive).
+_LOW_COST_BRANDS: frozenset[str] = frozenset({
+    "PLENOIL",
+    "PETROPRIX",
+    "BALLENOIL",
+    "GASAUTO",
+    "FAMILY",
+    "EASYGAS",
+    "CHEAP",
+})
+
+# Spanish road / highway patterns (substring match on brand + address, upper).
+_HIGHWAY_PATTERNS: tuple[str, ...] = (
+    "A-",
+    "AP-",
+    "N-",
+    "CV-",
+    "CARRETERA",
+    "CTRA",
+    "KM",
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -111,6 +147,18 @@ def _es_festivo(d: datetime) -> int:
     return 0
 
 
+def _is_low_cost(brand: str) -> int:
+    """1 if station brand contains a known low-cost label, else 0."""
+    upper = brand.upper()
+    return 1 if any(lc in upper for lc in _LOW_COST_BRANDS) else 0
+
+
+def _es_autopista(brand: str, address: str) -> int:
+    """1 if brand or address contains a Spanish road/highway pattern, else 0."""
+    upper = f"{brand} {address}".upper()
+    return 1 if any(p in upper for p in _HIGHWAY_PATTERNS) else 0
+
+
 # ── Core async logic ──────────────────────────────────────────────────────────
 
 
@@ -125,6 +173,8 @@ async def _fetch_all(factory: async_sessionmaker[AsyncSession]) -> list[Any]:
                 StationORM.municipality,
                 StationORM.latitude,
                 StationORM.longitude,
+                StationORM.brand,
+                StationORM.address,
             )
             .join(StationORM, PriceHistoryORM.station_id == StationORM.id)
             .order_by(PriceHistoryORM.recorded_at)
@@ -164,6 +214,8 @@ async def _run(
 
         recorded_at = _coerce_datetime(row.recorded_at)
         municipio = str(row.municipality)
+        brand = str(row.brand or "")
+        address = str(row.address or "")
 
         records.append({
             "_station_id": int(row.station_id),
@@ -175,6 +227,9 @@ async def _run(
             "comarca": comarcas.get(municipio, "Sin Comarca"),
             "dia_de_la_semana": recorded_at.weekday(),
             "es_festivo": _es_festivo(recorded_at),
+            "is_low_cost": _is_low_cost(brand),
+            "mes": recorded_at.month,
+            "es_autopista": _es_autopista(brand, address),
         })
 
     if skipped:
@@ -223,6 +278,25 @@ async def _run(
         "Rows after dropping first/last 7-day windows (no past/future price): %d",
         len(df),
     )
+
+    # momentum_7d: short-term price velocity. Safe to compute after the dropna
+    # since precio_semana_anterior is guaranteed non-null at this point.
+    df["momentum_7d"] = (df["precio"] - df["precio_semana_anterior"]).round(6)
+
+    # precio_medio_municipio: daily local market average per (municipio, fuel).
+    df["precio_medio_municipio"] = (
+        df.groupby(["fecha", "municipio", "tipo_combustible"])["precio"]
+        .transform("mean")
+        .round(6)
+    )
+
+    # precio_vs_media_comarca: deviation of this row's price from the daily
+    # comarca-level mean per fuel. Positive ⇒ this station is dearer than its
+    # comarca that day; negative ⇒ cheaper.
+    df["precio_vs_media_comarca"] = (
+        df["precio"]
+        - df.groupby(["fecha", "comarca", "tipo_combustible"])["precio"].transform("mean")
+    ).round(6)
 
     df = df[COLUMN_ORDER]
     log.info("DataFrame shape: %d rows x %d columns", len(df), len(df.columns))
