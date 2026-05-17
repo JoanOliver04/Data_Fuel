@@ -25,18 +25,25 @@ _COLS = [
     "es_festivo",
     "precio_semana_anterior",
     "tendencia_ultimos_30_dias",
+    "is_low_cost",
+    "mes",
+    "precio_medio_municipio",
+    "es_autopista",
+    "precio_vs_media_comarca",
+    "momentum_7d",
     "precio_prox_semana",
 ]
 
 
 def _make_csv(path: Path, n: int = 110) -> Path:
-    """Synthetic 11-col CSV in the strict order expected by entrenar.py."""
+    """Synthetic 17-col CSV in the strict order expected by entrenar.py."""
     rng = random.Random(42)
     base = date(2026, 1, 1)
     rows = []
     for i in range(n):
         precio = round(rng.uniform(1.2, 1.8), 3)
         d = base + timedelta(days=i % 30)
+        precio_semana_anterior = round(precio + rng.uniform(-0.05, 0.05), 3)
         rows.append(
             {
                 "fecha": d,
@@ -47,8 +54,14 @@ def _make_csv(path: Path, n: int = 110) -> Path:
                 "comarca": rng.choice(_COMARCAS),
                 "dia_de_la_semana": d.weekday(),
                 "es_festivo": 1 if d.weekday() >= 5 else 0,
-                "precio_semana_anterior": round(precio + rng.uniform(-0.05, 0.05), 3),
+                "precio_semana_anterior": precio_semana_anterior,
                 "tendencia_ultimos_30_dias": round(rng.uniform(-0.05, 0.05), 6),
+                "is_low_cost": rng.randint(0, 1),
+                "mes": d.month,
+                "precio_medio_municipio": round(precio + rng.uniform(-0.02, 0.02), 6),
+                "es_autopista": rng.randint(0, 1),
+                "precio_vs_media_comarca": round(rng.uniform(-0.05, 0.05), 6),
+                "momentum_7d": round(precio - precio_semana_anterior, 6),
                 "precio_prox_semana": round(precio + rng.uniform(-0.05, 0.05), 3),
             }
         )
