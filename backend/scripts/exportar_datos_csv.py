@@ -5,10 +5,16 @@ Usage (run from backend/):
 
 Output columns (strict order):
     fecha, precio, municipio, distancia, tipo_combustible, comarca,
-    dia_de_la_semana, precio_prox_semana
+    dia_de_la_semana, es_festivo, precio_semana_anterior,
+    tendencia_ultimos_30_dias, precio_prox_semana
 
-precio_prox_semana is the price of the same station+fuel 7 days later.
-Rows without a match (last 7 days of history) are dropped.
+- precio_prox_semana: price of the same station+fuel 7 days later.
+- precio_semana_anterior: price of the same station+fuel 7 days earlier.
+- tendencia_ultimos_30_dias: precio - rolling 30-day mean (same station+fuel).
+- es_festivo: 1 if weekend (sat/sun) or Spanish fixed national holiday, else 0.
+
+Rows without precio_prox_semana (last 7 days) or precio_semana_anterior
+(first 7 days) are dropped.
 """
 
 from __future__ import annotations
@@ -49,8 +55,25 @@ COLUMN_ORDER: list[str] = [
     "tipo_combustible",
     "comarca",
     "dia_de_la_semana",
+    "es_festivo",
+    "precio_semana_anterior",
+    "tendencia_ultimos_30_dias",
     "precio_prox_semana",
 ]
+
+# Fixed-date Spanish national holidays (movable ones like Easter excluded
+# to keep the mapping deterministic).
+_HOLIDAYS_ES_FIXED: frozenset[tuple[int, int]] = frozenset({
+    (1, 1),    # Año Nuevo
+    (1, 6),    # Reyes
+    (5, 1),    # Día del Trabajo
+    (8, 15),   # Asunción
+    (10, 12),  # Fiesta Nacional
+    (11, 1),   # Todos los Santos
+    (12, 6),   # Constitución
+    (12, 8),   # Inmaculada
+    (12, 25),  # Navidad
+})
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,6 +100,15 @@ def _coerce_datetime(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value
     return datetime.fromisoformat(str(value))
+
+
+def _es_festivo(d: datetime) -> int:
+    """1 if weekend or Spanish fixed national holiday, else 0."""
+    if d.weekday() >= 5:
+        return 1
+    if (d.month, d.day) in _HOLIDAYS_ES_FIXED:
+        return 1
+    return 0
 
 
 # ── Core async logic ──────────────────────────────────────────────────────────
@@ -142,6 +174,7 @@ async def _run(
             "tipo_combustible": FUEL_TYPE_TO_ID[fuel_type],
             "comarca": comarcas.get(municipio, "Sin Comarca"),
             "dia_de_la_semana": recorded_at.weekday(),
+            "es_festivo": _es_festivo(recorded_at),
         })
 
     if skipped:
@@ -151,19 +184,45 @@ async def _run(
     df["fecha"] = pd.to_datetime(df["fecha"])
     log.info("Rows fetched: %d", len(df))
 
-    # Self-join: for each row find the price of the same station+fuel 7 days later.
-    # Aggregate to one representative price per (station, fuel, date) before merging
-    # to avoid a cartesian product when multiple recordings exist on the same day.
-    df_next = (
+    # Aggregate one representative price per (station, fuel, date) for all
+    # temporal derivations to avoid cartesian products when multiple recordings
+    # exist on the same day.
+    agg = (
         df.groupby(["_station_id", "tipo_combustible", "fecha"], as_index=False)["precio"]
         .mean()
-        .rename(columns={"precio": "precio_prox_semana"})
+        .sort_values(["_station_id", "tipo_combustible", "fecha"])
+        .reset_index(drop=True)
     )
+
+    # precio_prox_semana: same station+fuel exactly 7 days later.
+    df_next = agg.rename(columns={"precio": "precio_prox_semana"}).copy()
     df_next["fecha"] = df_next["fecha"] - pd.Timedelta(days=7)
 
+    # precio_semana_anterior: same station+fuel exactly 7 days earlier.
+    df_prev = agg.rename(columns={"precio": "precio_semana_anterior"}).copy()
+    df_prev["fecha"] = df_prev["fecha"] + pd.Timedelta(days=7)
+
+    # tendencia_ultimos_30_dias: precio minus rolling 30-day mean per series.
+    # min_periods=1 keeps early rows (trend defined from day 1).
+    agg["_rolling_30"] = (
+        agg.groupby(["_station_id", "tipo_combustible"])["precio"]
+        .transform(lambda s: s.rolling(window=30, min_periods=1).mean())
+    )
+    agg["tendencia_ultimos_30_dias"] = (agg["precio"] - agg["_rolling_30"]).round(6)
+    df_trend = agg[
+        ["_station_id", "tipo_combustible", "fecha", "tendencia_ultimos_30_dias"]
+    ]
+
     df = df.merge(df_next, on=["_station_id", "tipo_combustible", "fecha"], how="left")
-    df = df.drop(columns=["_station_id"]).dropna(subset=["precio_prox_semana"])
-    log.info("Rows after dropping last-7-days (no future price): %d", len(df))
+    df = df.merge(df_prev, on=["_station_id", "tipo_combustible", "fecha"], how="left")
+    df = df.merge(df_trend, on=["_station_id", "tipo_combustible", "fecha"], how="left")
+    df = df.drop(columns=["_station_id"]).dropna(
+        subset=["precio_prox_semana", "precio_semana_anterior"]
+    )
+    log.info(
+        "Rows after dropping first/last 7-day windows (no past/future price): %d",
+        len(df),
+    )
 
     df = df[COLUMN_ORDER]
     log.info("DataFrame shape: %d rows x %d columns", len(df), len(df.columns))

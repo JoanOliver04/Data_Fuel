@@ -16,8 +16,8 @@ from sklearn.preprocessing import LabelEncoder
 
 logger = logging.getLogger(__name__)
 
-# Accepted column layouts: 7-col (pre-F1.4) and 8-col (post-F1.4 with target).
-_COLUMNS_7 = [
+# Expected CSV layout (post-Pizarra B): 11 columns in this strict order.
+_COLUMNS_EXPECTED = [
     "fecha",
     "precio",
     "municipio",
@@ -25,8 +25,11 @@ _COLUMNS_7 = [
     "tipo_combustible",
     "comarca",
     "dia_de_la_semana",
+    "es_festivo",
+    "precio_semana_anterior",
+    "tendencia_ultimos_30_dias",
+    "precio_prox_semana",
 ]
-_COLUMNS_8 = [*_COLUMNS_7, "precio_prox_semana"]
 
 TARGET_COLUMN = "precio_prox_semana"
 
@@ -36,6 +39,9 @@ FEATURE_COLUMNS: list[str] = [
     "distancia",
     "tipo_combustible",
     "dia_de_la_semana",
+    "es_festivo",
+    "precio_semana_anterior",
+    "tendencia_ultimos_30_dias",
     "mes",
     "año",
     "municipio_enc",
@@ -106,10 +112,9 @@ def _load_and_validate(path: Path, min_rows: int) -> pd.DataFrame:
     df: pd.DataFrame = pd.read_csv(path, parse_dates=["fecha"])
     actual_cols = list(df.columns)
 
-    if actual_cols not in (_COLUMNS_7, _COLUMNS_8):
+    if actual_cols != _COLUMNS_EXPECTED:
         raise ValueError(
-            f"Invalid columns {actual_cols}. "
-            f"Expected {_COLUMNS_7} (or with 'precio_prox_semana' appended)."
+            f"Invalid columns {actual_cols}. Expected {_COLUMNS_EXPECTED}."
         )
 
     if len(df) < min_rows:
@@ -117,6 +122,7 @@ def _load_and_validate(path: Path, min_rows: int) -> pd.DataFrame:
             f"CSV has {len(df)} rows; minimum required is {min_rows}."
         )
 
+    df["es_festivo"] = df["es_festivo"].astype(int)
     df["mes"] = df["fecha"].dt.month
     df["año"] = df["fecha"].dt.year
     return df

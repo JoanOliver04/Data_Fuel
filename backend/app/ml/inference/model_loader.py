@@ -16,7 +16,7 @@ import joblib
 log = logging.getLogger(__name__)
 
 _ARTIFACT_PATH = (
-    Path(__file__).resolve().parents[4] / "artifacts" / "modelo_combustible.pkl"
+    Path(__file__).resolve().parents[3] / "artifacts" / "modelo_combustible.pkl"
 )
 
 _modelo: dict[str, Any] | None = None
