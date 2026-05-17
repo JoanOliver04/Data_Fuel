@@ -34,6 +34,7 @@ _COLUMNS_EXPECTED = [
 TARGET_COLUMN = "precio_prox_semana"
 
 MIN_ROWS: int = 100
+MAX_TRAIN_ROWS: int = 500_000
 
 FEATURE_COLUMNS: list[str] = [
     "distancia",
@@ -53,6 +54,7 @@ def ejecutar_entrenamiento(
     csv_path: Path,
     output_path: Path,
     min_rows: int = MIN_ROWS,
+    max_rows: int = MAX_TRAIN_ROWS,
 ) -> dict[str, Any]:
     """Load csv_path, train Random Forest, persist artifact dict to output_path.
 
@@ -63,6 +65,10 @@ def ejecutar_entrenamiento(
     logger.info("Rows read: %d", len(df))
     df = df.dropna().copy()
     logger.info("Rows after dropna: %d", len(df))
+
+    if len(df) > max_rows:
+        df = df.sample(n=max_rows, random_state=42).reset_index(drop=True)
+        logger.info("Subsampled to %d rows (max_rows cap)", len(df))
 
     le_municipio: LabelEncoder = LabelEncoder()
     le_comarca: LabelEncoder = LabelEncoder()
