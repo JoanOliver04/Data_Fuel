@@ -1,12 +1,21 @@
 """AI refuel-advice service using the trained Random Forest model.
 
-Replicates EXACTLY the feature preprocessing from entrenar.py so that the
-feature vector passed to model.predict() is identical to what the model saw
-during training. Any divergence here produces garbage predictions.
+Replicates EXACTLY the feature ordering of FEATURE_COLUMNS in
+``app.ml.training.entrenar`` so the vector passed to ``model.predict()`` is
+identical in shape and column position to what the model saw at training
+time. Any divergence here produces garbage predictions.
 
-Feature order (must match FEATURE_COLUMNS in entrenar.py):
-    distancia, tipo_combustible, dia_de_la_semana, mes, año,
-    municipio_enc, comarca_enc
+Feature order (15 columns, must match FEATURE_COLUMNS in entrenar.py):
+
+    distancia, tipo_combustible, dia_de_la_semana, es_festivo,
+    precio_semana_anterior, tendencia_ultimos_30_dias, is_low_cost,
+    mes, precio_medio_municipio, es_autopista, precio_vs_media_comarca,
+    momentum_7d, año, municipio_enc, comarca_enc
+
+Several training-time features depend on per-station historical context that
+is not available at request time (the endpoint receives only lat/lon/fuel/
+municipio/comarca/precio_actual). For those we substitute neutral defaults
+derived from ``precio_actual``; the trade-off is documented inline.
 """
 
 from __future__ import annotations
@@ -19,6 +28,7 @@ import numpy as np
 
 from app.domain.entities.fuel_type import FuelType
 from app.ml.data.fuel_type_mapping import FUEL_TYPE_TO_ID
+from app.ml.data.holidays import is_festivo
 from app.ml.inference.model_loader import get_modelo
 from app.services.geopy_distance_service import calcular_distancia_geodesica
 
@@ -61,15 +71,28 @@ def generar_recomendacion(
     municipio_enc = _encode(le_municipio, municipio)
     comarca_enc = _encode(le_comarca, comarca)
 
+    # Historical features that the endpoint cannot supply at request time use
+    # neutral defaults: prior-week and municipal-mean prices fall back to the
+    # current price (no observed change / no local benchmark), trend / momentum
+    # / variance signals fall back to zero, and brand-derived flags default to
+    # the conservative "not low-cost / not highway" branch.
     features = np.array(
         [[
-            distancia,
-            tipo_combustible,
-            today.weekday(),
-            today.month,
-            today.year,
-            municipio_enc,
-            comarca_enc,
+            distancia,                # distancia
+            tipo_combustible,         # tipo_combustible
+            today.weekday(),          # dia_de_la_semana
+            is_festivo(today),        # es_festivo
+            precio_actual,            # precio_semana_anterior  (≈ precio_actual)
+            0.0,                      # tendencia_ultimos_30_dias (neutral)
+            0,                        # is_low_cost (unknown brand → 0)
+            today.month,              # mes
+            precio_actual,            # precio_medio_municipio (≈ precio_actual)
+            0,                        # es_autopista (unknown address → 0)
+            0.0,                      # precio_vs_media_comarca (neutral)
+            0.0,                      # momentum_7d (neutral)
+            today.year,               # año
+            municipio_enc,            # municipio_enc
+            comarca_enc,              # comarca_enc
         ]],
         dtype=float,
     )

@@ -79,7 +79,10 @@ def test_pkl_created(tmp_path: Path) -> None:
 def test_artifact_keys(tmp_path: Path) -> None:
     csv = _make_csv(tmp_path / "datos.csv")
     artifact = ejecutar_entrenamiento(csv, tmp_path / "modelo.pkl")
-    expected = {
+    # Required keys form the consumer contract (model_loader + recommendation
+    # service). The bundle is allowed to carry additional provenance keys
+    # (hyperparameters, oob, splits, feature importances, …).
+    required = {
         "model",
         "label_encoder_municipio",
         "label_encoder_comarca",
@@ -88,7 +91,29 @@ def test_artifact_keys(tmp_path: Path) -> None:
         "mae",
         "r2",
     }
-    assert set(artifact.keys()) == expected
+    assert required.issubset(set(artifact.keys()))
+
+
+def test_artifact_carries_provenance_metadata(tmp_path: Path) -> None:
+    csv = _make_csv(tmp_path / "datos.csv")
+    artifact = ejecutar_entrenamiento(csv, tmp_path / "modelo.pkl")
+    expected_extras = {
+        "r2_oob",
+        "split_strategy",
+        "split_quantile",
+        "split_date",
+        "n_train_rows",
+        "n_test_rows",
+        "hyperparameters",
+        "feature_importances",
+        "sklearn_version",
+    }
+    assert expected_extras.issubset(set(artifact.keys()))
+    assert artifact["split_strategy"] == "time_based"
+    assert isinstance(artifact["hyperparameters"], dict)
+    assert isinstance(artifact["feature_importances"], dict)
+    assert artifact["n_train_rows"] > 0
+    assert artifact["n_test_rows"] > 0
 
 
 def test_model_has_predict(tmp_path: Path) -> None:

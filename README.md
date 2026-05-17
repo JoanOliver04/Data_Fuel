@@ -323,15 +323,17 @@ The system is structured as a unidirectional, file-mediated data stream. Each st
                  │  [3] Distributed Model Training
                  │      python -m app.ml.training.entrenar
                  │      · LabelEncoder for municipio + comarca
-                 │      · train_test_split 80/20 (random_state=42)
-                 │      · RandomForestRegressor(n_estimators=100, n_jobs=-1)
-                 │      · MAX_TRAIN_ROWS=500 000 (stratified random subsample)
-                 │      · MAE + R² persisted as model metadata
+                 │      · time-based 80/20 split (chronological holdout)
+                 │      · RandomForestRegressor(n_estimators=300,
+                 │        max_depth=30, min_samples_leaf=3,
+                 │        max_features="sqrt", oob_score=True, n_jobs=6)
+                 │      · MAX_TRAIN_ROWS=1 500 000 · MAX_TEST_ROWS=300 000
+                 │      · time-split MAE/R² + OOB R² persisted as metadata
                  ▼
 ┌──────────────────────────────────┐
 │  Serialized Artifacts            │   joblib bundle: model, encoders,
-│  backend/artifacts/              │   feature_names, trained_at, mae, r2
-│  modelo_combustible.pkl          │
+│  backend/artifacts/              │   feature_names, trained_at, mae, r2,
+│  modelo_combustible.pkl          │   r2_oob, hyperparameters, importances
 └────────────────┬─────────────────┘
                  │  [4] Inference Engine
                  │      app/ml/inference/model_loader.py
@@ -396,7 +398,7 @@ The backend deploys two predictive models in parallel. Each is optimized for a d
 | Dimension | Parametric Baseline (Ridge) | Non-Parametric Ensemble (Random Forest) |
 |---|---|---|
 | Endpoint | `GET /api/v1/predictions/{station_id}/{fuel_type}` | `POST /api/v1/predictions/recommendation` |
-| Model class | `Pipeline(ColumnTransformer + Ridge(alpha=1.0))` | `RandomForestRegressor(n_estimators=100, n_jobs=-1, random_state=42)` |
+| Model class | `Pipeline(ColumnTransformer + Ridge(alpha=1.0))` | `RandomForestRegressor(n_estimators=300, max_depth=30, min_samples_leaf=3, max_features="sqrt", oob_score=True, n_jobs=6, random_state=42)` |
 | Inference granularity | Pointwise, per-station | Aggregate, per-comarca |
 | Forecast horizon | 48 hours (short-term) | 7 days (medium-term) |
 | Update cadence | On-demand, 6-hour per-fuel cache | Off-line retraining, file-mediated artifact swap |
@@ -411,12 +413,38 @@ The split is deliberate: a parametric baseline handles high-frequency pointwise 
 
 > **Validated against the v1.0 production artifact (`modelo_combustible.pkl`).** All metrics are persisted as keys inside the joblib bundle and exposed to the client via the recommendation endpoint as the displayed confidence score.
 
+#### 4.1 Validation methodology
+
+Forecast quality is evaluated under a **time-based holdout**: the full operational dataset is ordered chronologically by `fecha` and the top 20 % quantile is reserved as the test set. This deliberately rules out the leakage path of a random 80/20 split, where the same station appears in both halves on different days and the model can memorize per-station price levels rather than forecast forward in time. The published `mae` and `r2` keys therefore reflect honest performance on an unseen future window.
+
+The bagging procedure additionally produces an **out-of-bag (OOB) R²** estimate as a free, independent generalization signal computed from the bootstrap residuals. Both metrics are persisted alongside the model.
+
+#### 4.2 Headline KPIs
+
 | KPI | Value | Operational Interpretation |
 |---|---|---|
 | **Big Data Ingestion Volume** | **12,725,202** historical price records | Full 365-day MITECO backfill joined against the stations dimension. Confirms that the ETL pipeline sustains multi-million-row processing on commodity SQLite without external sharding. |
-| **Optimization Strategy** | **500,000** continuous rows (`random_state=42`) | Intelligent downsampling caps the Random Forest fit inside bounded CPU memory while preserving the joint feature distribution. Enables sub-minute hyperparameter iteration on standard developer hardware. |
-| **Predictive Accuracy — MAE** | **0.0156 €/L** | Mean Absolute Error on the held-out 20 % split. Represents a ~1.5-cent error margin in volatile fuel markets — well below intra-day price dispersion and the daily MITECO refresh granularity. |
-| **Predictive Accuracy — R²** | **0.9758** | Coefficient of determination. The ensemble explains 97.58 % of the variance of `precio_prox_semana` on unseen records, demonstrating robust generalization across geography, fuel type, and seasonal cycles. |
+| **Optimization Strategy** | **1,500,000** train · **300,000** test rows (`random_state=42`) | Per-half subsampling caps the Random Forest fit inside bounded CPU memory (`n_jobs=6`, `max_depth=30`) while preserving the joint feature distribution across the held-out future window. |
+| **Predictive Accuracy — MAE (time-split)** | **0.0488 €/L** | Mean Absolute Error on the chronologically held-out tail (≈ 73-day forecast horizon). A ~5-cent average error is within the typical intra-week price band on Spanish fuel markets. |
+| **Predictive Accuracy — R² (time-split)** | **0.8262** | The ensemble explains 82.62 % of the variance of `precio_prox_semana` on the unseen forecast window — robust performance against a deliberately strict, leakage-free benchmark. |
+| **Predictive Accuracy — R² (OOB)** | **0.9770** | Out-of-bag estimate computed by the bagging procedure. Independent confirmation of training-time fit quality (97.70 % variance explained on bootstrap residuals). |
+
+#### 4.3 Feature importance ranking (top 10)
+
+Gini-impurity-weighted importances from the trained ensemble. The three self-engineered market-extension features (in **bold**) collectively account for **~52 %** of the model's decision power, validating the feature-engineering investment.
+
+| Rank | Feature | Importance |
+|---:|---|---:|
+| 1 | **`precio_semana_anterior`** | 0.3192 |
+| 2 | **`precio_medio_municipio`** | 0.2474 |
+| 3 | **`precio_vs_media_comarca`** | 0.1735 |
+| 4 | `tendencia_ultimos_30_dias` | 0.0646 |
+| 5 | `momentum_7d` | 0.0470 |
+| 6 | `distancia` | 0.0457 |
+| 7 | `mes` | 0.0380 |
+| 8 | `tipo_combustible` | 0.0354 |
+| 9 | `año` | 0.0138 |
+| 10 | `is_low_cost` | 0.0064 |
 
 ### 5. Operational CLI & Runbook
 

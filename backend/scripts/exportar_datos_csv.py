@@ -47,6 +47,7 @@ from app.infrastructure.database.models.price_history import PriceHistoryORM
 from app.infrastructure.database.models.station import StationORM
 from app.infrastructure.database.session import get_session_factory
 from app.ml.data.fuel_type_mapping import FUEL_TYPE_TO_ID, resolve_fuel_type
+from app.ml.data.holidays import is_festivo as _shared_is_festivo
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -74,20 +75,6 @@ COLUMN_ORDER: list[str] = [
     "momentum_7d",
     "precio_prox_semana",
 ]
-
-# Fixed-date Spanish national holidays (movable ones like Easter excluded
-# to keep the mapping deterministic).
-_HOLIDAYS_ES_FIXED: frozenset[tuple[int, int]] = frozenset({
-    (1, 1),    # Año Nuevo
-    (1, 6),    # Reyes
-    (5, 1),    # Día del Trabajo
-    (8, 15),   # Asunción
-    (10, 12),  # Fiesta Nacional
-    (11, 1),   # Todos los Santos
-    (12, 6),   # Constitución
-    (12, 8),   # Inmaculada
-    (12, 25),  # Navidad
-})
 
 # Known low-cost brand labels (substring match, case-insensitive).
 _LOW_COST_BRANDS: frozenset[str] = frozenset({
@@ -136,15 +123,6 @@ def _coerce_datetime(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value
     return datetime.fromisoformat(str(value))
-
-
-def _es_festivo(d: datetime) -> int:
-    """1 if weekend or Spanish fixed national holiday, else 0."""
-    if d.weekday() >= 5:
-        return 1
-    if (d.month, d.day) in _HOLIDAYS_ES_FIXED:
-        return 1
-    return 0
 
 
 def _is_low_cost(brand: str) -> int:
@@ -226,7 +204,7 @@ async def _run(
             "tipo_combustible": FUEL_TYPE_TO_ID[fuel_type],
             "comarca": comarcas.get(municipio, "Sin Comarca"),
             "dia_de_la_semana": recorded_at.weekday(),
-            "es_festivo": _es_festivo(recorded_at),
+            "es_festivo": _shared_is_festivo(recorded_at),
             "is_low_cost": _is_low_cost(brand),
             "mes": recorded_at.month,
             "es_autopista": _es_autopista(brand, address),
