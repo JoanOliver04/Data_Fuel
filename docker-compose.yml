@@ -1,0 +1,87 @@
+# Data Fuel — full-stack orchestration.
+#
+# Usage:
+#   docker compose up --build
+#
+# Brings up:
+#   - backend  (FastAPI on :8000, single uvicorn worker, non-root)
+#   - frontend (Nginx on :8080 → 80, serving the Vite SPA bundle and
+#               reverse-proxying /api to the backend container)
+#
+# State is preserved across rebuilds via two named volumes:
+#   - datafuel-db        → SQLite database file (price_history, stations, …)
+#   - datafuel-artifacts → joblib model artifact (modelo_combustible.pkl)
+#
+# To populate the database with real MITECO data and train the model, run
+# the operational CLI inside the backend container after the stack is up:
+#   docker compose exec backend python scripts/descargar_historico.py --last-n-days 365
+#   docker compose exec backend python scripts/exportar_datos_csv.py
+#   docker compose exec backend python -m app.ml.training.entrenar
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: datafuel-backend:latest
+    container_name: datafuel-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "sqlite+aiosqlite:////app/data/datafuel.db"
+      # Same-origin via the frontend's nginx proxy + direct localhost access
+      # from the host machine. Add a public domain here in real deployments.
+      ALLOWED_ORIGINS: "http://localhost,http://localhost:8080,http://frontend"
+      # Disable background work in the container by default. The deployer
+      # can override via `docker compose run -e SYNC_ON_STARTUP=true ...`.
+      SYNC_ON_STARTUP: "false"
+      SCHEDULER_ENABLED: "false"
+      DEBUG: "false"
+      LOG_LEVEL: "INFO"
+    volumes:
+      - datafuel-db:/app/data
+      - datafuel-artifacts:/app/artifacts
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=3).getcode()==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - datafuel
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: datafuel-frontend:latest
+    container_name: datafuel-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - datafuel
+
+volumes:
+  datafuel-db:
+    name: datafuel-db
+  datafuel-artifacts:
+    name: datafuel-artifacts
+
+networks:
+  datafuel:
+    driver: bridge

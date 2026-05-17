@@ -1,0 +1,22 @@
+# Keep the build context lean.
+node_modules/
+dist/
+dev-dist/
+
+# Test + lint state.
+coverage/
+.eslintcache
+
+# IDE / editor metadata.
+.idea/
+.vscode/
+
+# Skill / agent metadata.
+.agents/
+.claude/
+
+# Source maps + generated PWA assets only relevant to local dev.
+*.log
+
+# Markdown isn't needed at build time.
+*.md
