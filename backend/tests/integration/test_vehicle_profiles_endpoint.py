@@ -219,7 +219,7 @@ async def stations_at_distances(db):
 async def test_recommendations_apply_correct_consumption_per_distance(
     api_client, profile, stations_at_distances
 ):
-    """Each station gets a K computed from the distance band's consumption × that station's price.
+    """Each station gets a K computed from the distance band's consumption * that station's price.
 
     profile: urban=8, mixed=6.5, highway=5.5; all stations have price 1.500 €/L.
       K_urban   = 8.0/100   * 1.5 = 0.120

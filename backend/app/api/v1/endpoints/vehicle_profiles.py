@@ -1,7 +1,7 @@
 """Vehicle profiles endpoints: CRUD + km-cost estimator."""
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -100,7 +100,7 @@ async def update_vehicle_profile(
         log.info("vehicle-profile update: id=%d not found", profile_id)
         raise HTTPException(status_code=404, detail="Vehicle profile not found")
 
-    updates: dict = body.model_dump(exclude_none=True, exclude={"reference_fuel_price"})
+    updates: dict[str, Any] = body.model_dump(exclude_none=True, exclude={"reference_fuel_price"})
     if "driving_style" in updates:
         updates["driving_style"] = body.driving_style.value if body.driving_style else None
 

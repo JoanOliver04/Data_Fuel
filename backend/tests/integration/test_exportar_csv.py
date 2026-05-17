@@ -102,7 +102,7 @@ def _make_stations() -> list[StationORM]:
 
 
 def _make_prices(n_days: int = 40) -> list[PriceHistoryORM]:
-    """Continuous daily prices for 5 stations × 2 fuels. 40 days ≥ 14-day window."""
+    """Continuous daily prices for 5 stations x 2 fuels. 40 days >= 14-day window."""
     base = datetime(2026, 1, 1, 12, 0)
     prices = []
     for day in range(n_days):

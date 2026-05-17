@@ -14,4 +14,4 @@ def calcular_distancia_geodesica(
     coord_b: tuple[float, float],
 ) -> float:
     """Geodesic distance in km between two (lat, lon) points (WGS-84)."""
-    return geodesic(coord_a, coord_b).km
+    return float(geodesic(coord_a, coord_b).km)

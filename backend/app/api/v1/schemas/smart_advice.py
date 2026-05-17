@@ -2,8 +2,8 @@
 
 from pydantic import BaseModel
 
-from app.domain.services.smart_refuel_service import SmartAdvice
 from app.domain.services.cost_calculator import StationCost
+from app.domain.services.smart_refuel_service import SmartAdvice
 
 
 class StationRef(BaseModel):

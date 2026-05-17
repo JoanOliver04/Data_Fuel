@@ -1,6 +1,6 @@
 """Pure domain logic for vehicle-profile cost calculations.
 
-Formula:  K (€/km) = (consumption_l_per_100km / 100) × fuel_price (€/L)
+Formula:  K (EUR/km) = (consumption_l_per_100km / 100) * fuel_price (EUR/L)
 
 The applicable consumption is selected dynamically from the trip distance
 (see ``select_consumption_mode``):

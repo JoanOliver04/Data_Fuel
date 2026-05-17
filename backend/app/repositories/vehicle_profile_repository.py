@@ -1,6 +1,7 @@
 """SQLAlchemy repository for vehicle profiles."""
 
 from collections.abc import Sequence
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +13,7 @@ class VehicleProfileRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def create(self, data: dict) -> VehicleProfileORM:
+    async def create(self, data: dict[str, Any]) -> VehicleProfileORM:
         profile = VehicleProfileORM(**data)
         self._session.add(profile)
         await self._session.commit()
@@ -28,7 +29,7 @@ class VehicleProfileRepository:
         )
         return result.scalars().all()
 
-    async def update(self, profile: VehicleProfileORM, data: dict) -> VehicleProfileORM:
+    async def update(self, profile: VehicleProfileORM, data: dict[str, Any]) -> VehicleProfileORM:
         for key, value in data.items():
             setattr(profile, key, value)
         await self._session.commit()

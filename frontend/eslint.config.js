@@ -8,7 +8,15 @@ import globals from "globals";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", ".agents/**", ".claude/**", "*.config.js"],
+    ignores: [
+      "dist/**",
+      "dev-dist/**",
+      "node_modules/**",
+      ".agents/**",
+      ".claude/**",
+      "*.config.js",
+      "public/**",
+    ],
   },
   js.configs.recommended,
   {
@@ -47,6 +55,19 @@ export default [
       ],
       // shadcn primitives co-locate variants with the component (cva pattern).
       "react-refresh/only-export-components": "off",
+    },
+  },
+  // Node-only helpers (build scripts, post-install steps). They never run in
+  // the browser, so let them use console/process and skip the TS rules.
+  {
+    files: ["scripts/**/*.{mjs,cjs,js}"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: { ...globals.node },
+    },
+    rules: {
+      "no-undef": "off",
     },
   },
 ];

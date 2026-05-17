@@ -10,7 +10,6 @@ Decision logic:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
 
 from app.domain.services.cost_calculator import StationCost
 from app.domain.services.prediction_service import PredictionResult
@@ -27,7 +26,7 @@ class SmartAdvice:
     savings_eur: float
     savings_pct: float
     reasoning: str
-    confidence: float  # 0.0 – 1.0
+    confidence: float  # 0.0 - 1.0
 
 
 class SmartRefuelService:
@@ -38,7 +37,7 @@ class SmartRefuelService:
         best_station: StationCost,
         prediction: PredictionResult | None,
         liters: float,
-        km_cost: float,  # noqa: ARG002  (kept for API consistency)
+        km_cost: float,
     ) -> SmartAdvice:
         current_cost = float(best_station.total_cost)
 

@@ -24,17 +24,17 @@ from app.domain.services.vehicle_profile_service import (
 
 
 def test_typical_consumption():
-    # 6.5 L/100km × 1.52 €/L = 0.0988 €/km
+    # 6.5 L/100km *1.52 €/L = 0.0988 €/km
     assert compute_km_cost(6.5, 1.52) == pytest.approx(0.0988, rel=1e-5)
 
 
 def test_higher_consumption():
-    # 12 L/100km × 1.85 €/L = 0.222 €/km
+    # 12 L/100km *1.85 €/L = 0.222 €/km
     assert compute_km_cost(12.0, 1.85) == pytest.approx(0.222, rel=1e-5)
 
 
 def test_low_consumption():
-    # 4.0 L/100km × 1.50 €/L = 0.06 €/km
+    # 4.0 L/100km *1.50 €/L = 0.06 €/km
     assert compute_km_cost(4.0, 1.50) == pytest.approx(0.06, rel=1e-5)
 
 
@@ -106,7 +106,7 @@ def test_km_cost_urban_band(profile: ConsumptionProfile):
 
 
 def test_km_cost_mixed_band(profile: ConsumptionProfile):
-    # 5–20 km → mixed (6.5) at 1.60 €/L = 0.104 €/km
+    # 5-20 km -> mixed (6.5) at 1.60 EUR/L = 0.104 EUR/km
     k, mode = km_cost_for_distance(profile, distance_km=10.0, fuel_price_eur_per_l=1.60)
     assert mode is ConsumptionMode.MIXED
     assert k == pytest.approx(0.104, rel=1e-5)

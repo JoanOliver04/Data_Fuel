@@ -1,6 +1,7 @@
 """Recommendations endpoint: cheapest stations ranked by total refuelling cost."""
 
 import logging
+from collections.abc import Sequence
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas.recommendation import RecommendationOut
 from app.core.cache import recommendations_cache
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.rate_limit import limiter
 from app.domain.entities.fuel_type import FuelType
 from app.domain.entities.vehicle_profile import ConsumptionMode
@@ -23,6 +24,7 @@ from app.domain.services.vehicle_profile_service import (
     ConsumptionProfile,
     km_cost_for_distance,
 )
+from app.infrastructure.database.models.station import StationORM
 from app.infrastructure.database.models.vehicle_profile import VehicleProfileORM
 from app.infrastructure.database.session import get_async_session
 from app.infrastructure.external.ors import ORSClient
@@ -245,10 +247,10 @@ def _build_resolver(profile: VehicleProfileORM | None) -> KmCostResolver | None:
 
 
 async def _compute_distances(
-    settings,
+    settings: Settings,
     user_lat: float,
     user_lon: float,
-    stations: list,
+    stations: Sequence[StationORM],
 ) -> dict[int, DistanceResult] | None:
     """Return per-station driving distances when DRIVING mode is active; else None."""
     mode = DistanceMode(settings.distance_mode)

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from app.domain.services.cost_calculator import haversine_km
 from app.infrastructure.external.ors import ORSClient, ORSClientError
@@ -17,7 +17,7 @@ from app.infrastructure.external.ors import ORSClient, ORSClientError
 logger = logging.getLogger(__name__)
 
 
-class DistanceMode(str, Enum):
+class DistanceMode(StrEnum):
     EUCLIDEAN = "EUCLIDEAN"
     DRIVING = "DRIVING"
 

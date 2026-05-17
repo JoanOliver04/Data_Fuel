@@ -4,14 +4,13 @@ from decimal import Decimal
 
 import pytest
 
+from app.domain.entities.fuel_type import FuelType
 from app.domain.services.cost_calculator import StationCost
 from app.domain.services.prediction_service import PredictionResult
-from app.domain.entities.fuel_type import FuelType
 from app.domain.services.smart_refuel_service import (
     SAVINGS_THRESHOLD_EUR,
     SmartRefuelService,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -104,7 +103,7 @@ def test_refuel_now_when_price_stable():
 
 def test_wait_when_savings_above_threshold():
     station = _make_station(price=1.60, liters=50.0)
-    # Drop of 0.10 €/L × 50 L = 5€ savings → above 2€ threshold
+    # Drop of 0.10 EUR/L * 50 L = 5€ savings → above 2€ threshold
     prediction = _make_prediction(current_price=1.60, predicted_price=1.50)
     advice = SVC.advise(station, prediction, liters=50.0, km_cost=0.13)
     assert advice.action == "WAIT"
@@ -116,7 +115,7 @@ def test_wait_when_savings_above_threshold():
 
 def test_refuel_now_when_savings_just_below_threshold():
     station = _make_station(price=1.60, liters=50.0)
-    # Drop of 0.03 €/L × 50 L = 1.5€ → below 2€ threshold
+    # Drop of 0.03 EUR/L * 50 L = 1.5€ → below 2€ threshold
     prediction = _make_prediction(current_price=1.60, predicted_price=1.57)
     advice = SVC.advise(station, prediction, liters=50.0, km_cost=0.13)
     assert advice.action == "REFUEL_NOW"

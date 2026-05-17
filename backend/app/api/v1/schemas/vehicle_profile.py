@@ -2,7 +2,7 @@
 
 Three consumption values are required so K can be selected dynamically from
 the trip distance toward each station. All consumptions are validated to a
-realistic 1.0–25.0 L/100km range; tanks to 10–200 L.
+realistic 1.0-25.0 L/100km range; tanks to 10-200 L.
 """
 
 from __future__ import annotations
