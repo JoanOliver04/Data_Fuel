@@ -66,7 +66,8 @@ def _make_stations() -> list[StationORM]:
     ]
 
 
-def _make_prices(n_days: int = 30) -> list[PriceHistoryORM]:
+def _make_prices(n_days: int = 40) -> list[PriceHistoryORM]:
+    """Continuous daily prices for 3 stations × 2 fuels. 40 days ≥ 14-day window."""
     base = datetime(2026, 1, 1, 12, 0)
     prices = []
     for day in range(n_days):
@@ -119,13 +120,15 @@ async def test_precio_prox_semana_present_and_notnull(
     assert df["precio_prox_semana"].notna().all()
 
 
-async def test_last_7_days_dropped(
+async def test_first_and_last_7_days_dropped(
     populated: async_sessionmaker[AsyncSession], tmp_path: Path
 ) -> None:
-    # 30 days (Jan 1-30): rows from Jan 24-30 have no 7-day future price -> dropped.
+    # 40 days (Jan 1-Feb 9): first 7 (no past price) and last 7 (no future price)
+    # are dropped. Surviving range: Jan 8 → Feb 2.
     out = await _run(tmp_path / "datos.csv", populated)
     df = pd.read_csv(out, parse_dates=["fecha"])
-    assert df["fecha"].max() <= pd.Timestamp("2026-01-23")
+    assert df["fecha"].min() >= pd.Timestamp("2026-01-08")
+    assert df["fecha"].max() <= pd.Timestamp("2026-02-02")
 
 
 async def test_distancia_positive_and_under_500km(
@@ -135,3 +138,40 @@ async def test_distancia_positive_and_under_500km(
     df = pd.read_csv(out)
     assert (df["distancia"] >= 0).all()
     assert (df["distancia"] < 500).all()
+
+
+async def test_precio_semana_anterior_present_and_notnull(
+    populated: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    out = await _run(tmp_path / "datos.csv", populated)
+    df = pd.read_csv(out)
+    assert "precio_semana_anterior" in df.columns
+    assert df["precio_semana_anterior"].notna().all()
+
+
+async def test_es_festivo_is_binary(
+    populated: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    out = await _run(tmp_path / "datos.csv", populated)
+    df = pd.read_csv(out)
+    assert "es_festivo" in df.columns
+    assert set(df["es_festivo"].unique()).issubset({0, 1})
+
+
+async def test_es_festivo_marks_weekends(
+    populated: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    out = await _run(tmp_path / "datos.csv", populated)
+    df = pd.read_csv(out, parse_dates=["fecha"])
+    weekend_mask = df["fecha"].dt.weekday >= 5
+    assert (df.loc[weekend_mask, "es_festivo"] == 1).all()
+
+
+async def test_tendencia_ultimos_30_dias_present_and_numeric(
+    populated: async_sessionmaker[AsyncSession], tmp_path: Path
+) -> None:
+    out = await _run(tmp_path / "datos.csv", populated)
+    df = pd.read_csv(out)
+    assert "tendencia_ultimos_30_dias" in df.columns
+    assert pd.api.types.is_numeric_dtype(df["tendencia_ultimos_30_dias"])
+    assert df["tendencia_ultimos_30_dias"].notna().all()

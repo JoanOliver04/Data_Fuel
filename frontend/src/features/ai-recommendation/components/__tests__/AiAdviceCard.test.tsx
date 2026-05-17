@@ -44,6 +44,20 @@ describe("AiAdviceCard — REPOSTA AHORA", () => {
     render(<AiAdviceCard response={REPOSTA} />);
     expect(screen.getByText("95%")).toBeInTheDocument();
   });
+
+  it("uses emerald color variant on the outer card", () => {
+    const { container } = render(<AiAdviceCard response={REPOSTA} />);
+    const card = container.firstChild as HTMLElement;
+    expect(card.className).toMatch(/border-emerald-300/);
+    expect(card.className).toMatch(/bg-emerald-50/);
+    expect(card.className).not.toMatch(/border-amber-300/);
+  });
+
+  it("shows the price-up signal in red with a + sign", () => {
+    render(<AiAdviceCard response={REPOSTA} />);
+    const variation = screen.getByText(/\+4\.6%/);
+    expect(variation.className).toMatch(/text-red-600/);
+  });
 });
 
 describe("AiAdviceCard — ESPERA", () => {
@@ -66,6 +80,20 @@ describe("AiAdviceCard — ESPERA", () => {
   it("shows confidence as percentage", () => {
     render(<AiAdviceCard response={ESPERA} />);
     expect(screen.getByText("78%")).toBeInTheDocument();
+  });
+
+  it("uses amber color variant on the outer card", () => {
+    const { container } = render(<AiAdviceCard response={ESPERA} />);
+    const card = container.firstChild as HTMLElement;
+    expect(card.className).toMatch(/border-amber-300/);
+    expect(card.className).toMatch(/bg-amber-50/);
+    expect(card.className).not.toMatch(/border-emerald-300/);
+  });
+
+  it("shows the price-drop signal in emerald with a - sign", () => {
+    render(<AiAdviceCard response={ESPERA} />);
+    const variation = screen.getByText(/-3\.9%/);
+    expect(variation.className).toMatch(/text-emerald-700/);
   });
 });
 

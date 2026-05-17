@@ -22,11 +22,15 @@ _COLS = [
     "tipo_combustible",
     "comarca",
     "dia_de_la_semana",
+    "es_festivo",
+    "precio_semana_anterior",
+    "tendencia_ultimos_30_dias",
     "precio_prox_semana",
 ]
 
 
 def _make_csv(path: Path, n: int = 110) -> Path:
+    """Synthetic 11-col CSV in the strict order expected by entrenar.py."""
     rng = random.Random(42)
     base = date(2026, 1, 1)
     rows = []
@@ -42,6 +46,9 @@ def _make_csv(path: Path, n: int = 110) -> Path:
                 "tipo_combustible": rng.randint(1, 5),
                 "comarca": rng.choice(_COMARCAS),
                 "dia_de_la_semana": d.weekday(),
+                "es_festivo": 1 if d.weekday() >= 5 else 0,
+                "precio_semana_anterior": round(precio + rng.uniform(-0.05, 0.05), 3),
+                "tendencia_ultimos_30_dias": round(rng.uniform(-0.05, 0.05), 6),
                 "precio_prox_semana": round(precio + rng.uniform(-0.05, 0.05), 3),
             }
         )
