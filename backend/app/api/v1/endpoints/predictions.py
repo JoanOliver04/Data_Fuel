@@ -100,10 +100,12 @@ async def get_prediction(
 async def post_recommendation(
     request: Request,
     payload: RecommendationRequest,
+    session: AsyncSession = Depends(get_async_session),
 ) -> RecommendationResponse:
     if get_modelo() is None:
         raise HTTPException(status_code=503, detail="AI model not loaded")
-    result = generar_recomendacion(
+    result = await generar_recomendacion(
+        session=session,
         lat=payload.lat,
         lon=payload.lon,
         fuel_type=payload.fuel_type,

@@ -70,11 +70,13 @@ async def db(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture
-async def api_client(test_settings: Settings) -> AsyncGenerator[AsyncClient, None]:
+async def api_client(engine: AsyncEngine) -> AsyncGenerator[AsyncClient, None]:
     """ASGI in-process client for FastAPI integration tests.
 
     ASGITransport doesn't invoke the ASGI lifespan scope, so we manually seed
-    app.state with the services that endpoints depend on.
+    app.state with the services that endpoints depend on. Depending on
+    ``engine`` guarantees the in-memory schema is created before endpoints
+    that touch the DB are exercised.
     """
     from app.domain.services.prediction_service import PredictionService
 
