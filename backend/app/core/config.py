@@ -63,6 +63,13 @@ class Settings(BaseSettings):
             raise ValueError("DISTANCE_MODE must be 'EUCLIDEAN' or 'DRIVING'")
         return v
 
+    # ─── TomTom Routing (Matrix Routing v2) ───────────────
+    # Second driving-distance provider, traffic-aware. Only the client layer
+    # is wired here; provider selection lives in a later routing phase.
+    tomtom_api_key: str | None = None
+    tomtom_base_url: str = Field(default="https://api.tomtom.com")
+    tomtom_request_timeout: float = Field(default=20.0, gt=0.0)
+
     # ─── Sync scheduler ───────────────────────────────────
     sync_interval_seconds: int = Field(default=3600, ge=60)
     sync_on_startup: bool = True
