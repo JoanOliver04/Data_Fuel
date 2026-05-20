@@ -6,13 +6,24 @@ yield the haversine provider; DRIVING with a key yields the ORS provider.
 
 import pytest
 
-from app.core.config import get_settings
-from app.services.routing import HaversineProvider, OrsMatrixProvider, get_routing_provider
+from app.core.config import Settings, get_settings
+from app.services.routing import (
+    HaversineProvider,
+    OrsMatrixProvider,
+    TomTomMatrixProvider,
+    get_routing_provider,
+)
 
 
-def _settings(monkeypatch: pytest.MonkeyPatch, mode: str, ors_key: str) -> object:
+def _settings(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    ors_key: str = "",
+    tomtom_key: str = "",
+) -> Settings:
     monkeypatch.setenv("DISTANCE_MODE", mode)
     monkeypatch.setenv("ORS_API_KEY", ors_key)
+    monkeypatch.setenv("TOMTOM_API_KEY", tomtom_key)
     get_settings.cache_clear()
     return get_settings()
 
@@ -31,4 +42,20 @@ def test_driving_mode_without_key_falls_back_to_haversine(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     provider = get_routing_provider(_settings(monkeypatch, "DRIVING", ""))
+    assert isinstance(provider, HaversineProvider)
+
+
+def test_driving_tomtom_mode_with_key_returns_tomtom_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = get_routing_provider(
+        _settings(monkeypatch, "DRIVING_TOMTOM", tomtom_key="a-real-key")
+    )
+    assert isinstance(provider, TomTomMatrixProvider)
+
+
+def test_driving_tomtom_mode_without_key_falls_back_to_haversine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = get_routing_provider(_settings(monkeypatch, "DRIVING_TOMTOM", tomtom_key=""))
     assert isinstance(provider, HaversineProvider)

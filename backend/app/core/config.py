@@ -59,8 +59,8 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_distance_mode(cls, value: str) -> str:
         v = str(value).strip().upper()
-        if v not in {"EUCLIDEAN", "DRIVING"}:
-            raise ValueError("DISTANCE_MODE must be 'EUCLIDEAN' or 'DRIVING'")
+        if v not in {"EUCLIDEAN", "DRIVING", "DRIVING_TOMTOM"}:
+            raise ValueError("DISTANCE_MODE must be 'EUCLIDEAN', 'DRIVING', or 'DRIVING_TOMTOM'")
         return v
 
     # ─── TomTom Routing (Matrix Routing v2) ───────────────
@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     tomtom_api_key: str | None = None
     tomtom_base_url: str = Field(default="https://api.tomtom.com")
     tomtom_request_timeout: float = Field(default=20.0, gt=0.0)
+    # Free tier is ~2500 req/day; default leaves a 100-request safety margin.
+    # The routing adapter short-circuits to haversine once this is hit (UTC daily).
+    tomtom_daily_quota_limit: int = Field(default=2400, ge=1)
 
     # ─── Sync scheduler ───────────────────────────────────
     sync_interval_seconds: int = Field(default=3600, ge=60)

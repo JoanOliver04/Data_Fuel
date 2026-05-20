@@ -10,14 +10,20 @@ from app.services.routing.protocol import RoutingProvider
 from app.services.routing.providers import (
     HaversineProvider,
     OrsMatrixProvider,
+    TomTomMatrixProvider,
     haversine_leg,
 )
+from app.services.routing.quota import DailyQuotaGuard, QuotaSnapshot, default_quota_guard
 
 __all__ = [
+    "DailyQuotaGuard",
     "HaversineProvider",
     "OrsMatrixProvider",
+    "QuotaSnapshot",
     "RouteLeg",
     "RoutingProvider",
+    "TomTomMatrixProvider",
+    "default_quota_guard",
     "get_routing_provider",
     "haversine_leg",
 ]

@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 class DistanceMode(StrEnum):
     EUCLIDEAN = "EUCLIDEAN"
     DRIVING = "DRIVING"
+    # Selected by the routing-provider factory. DistanceService itself treats
+    # any non-DRIVING mode as EUCLIDEAN, so the legacy DistanceService path
+    # (still used by the endpoint) is unaffected until the factory is wired in.
+    DRIVING_TOMTOM = "DRIVING_TOMTOM"
 
 
 @dataclass(frozen=True, slots=True)
