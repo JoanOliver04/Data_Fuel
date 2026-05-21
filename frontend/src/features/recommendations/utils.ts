@@ -12,6 +12,21 @@ export function formatDrivingSummary(item: RecommendationItem): string {
   return kmLabel;
 }
 
+// Below this, traffic delay is noise (rounding/GPS jitter); only surface a badge
+// once the live-traffic ETA penalty is at least a minute.
+const TRAFFIC_BADGE_THRESHOLD_S = 60;
+
+/**
+ * Traffic-delay badge label like "+3 min" when the (TomTom) driving ETA carries
+ * more than a minute of live-traffic delay; `null` when there is no meaningful
+ * delay or the provider returned none (haversine / ORS).
+ */
+export function formatTrafficDelay(item: RecommendationItem): string | null {
+  const delay = item.traffic_delay_seconds;
+  if (delay == null || delay <= TRAFFIC_BADGE_THRESHOLD_S) return null;
+  return `+${Math.round(delay / 60)} min`;
+}
+
 const MODE_LABEL_ES: Record<ConsumptionMode, string> = {
   urban: "urbano",
   mixed: "mixto",

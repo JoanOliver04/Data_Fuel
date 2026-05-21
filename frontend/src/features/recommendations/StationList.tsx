@@ -1,4 +1,4 @@
-import { Car, ChevronDown, ChevronUp, Heart, Info } from "lucide-react";
+import { Car, ChevronDown, ChevronUp, Heart, Info, TrafficCone } from "lucide-react";
 import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -15,7 +15,12 @@ import { useSettingsStore } from "@/stores/settings.store";
 
 import { RecommendationSkeleton } from "./RecommendationSkeleton";
 import type { RecommendationItem } from "./types";
-import { formatDrivingSummary, formatRealCostTooltip } from "./utils";
+import { formatDrivingSummary, formatRealCostTooltip, formatTrafficDelay } from "./utils";
+
+// Cards enter with a brief stagger; cap the cascade so a long list still
+// finishes settling quickly (and so far-down cards aren't held invisible).
+const STAGGER_STEP_MS = 35;
+const STAGGER_MAX_STEPS = 8;
 
 // Recharts (~300 KB) only loads after the user expands a card's history panel.
 const PriceHistoryChart = lazy(() =>
@@ -56,6 +61,9 @@ const StationCard = memo(function StationCard({
   const [showChart, setShowChart] = useState(false);
   const { data: history } = usePriceHistory(item.station_id, item.fuel_type, showChart);
 
+  const trafficLabel = formatTrafficDelay(item);
+  const enterDelay = `${Math.min(rank - 1, STAGGER_MAX_STEPS) * STAGGER_STEP_MS}ms`;
+
   useEffect(() => {
     if (isSelected && cardRef.current) {
       cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -71,9 +79,11 @@ const StationCard = memo(function StationCard({
       onKeyDown={(e) => e.key === "Enter" && onSelect(item.station_id)}
       onMouseEnter={() => onHover(item.station_id)}
       onMouseLeave={() => onHover(null)}
+      style={{ animationDelay: enterDelay }}
       className={cn(
         "group cursor-pointer rounded-xl border p-3.5 transition-all duration-150",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "fill-mode-both motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]",
         isSelected
           ? "border-primary/40 bg-primary/5 shadow-sm ring-2 ring-primary/15"
           : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md hover:shadow-black/5",
@@ -138,6 +148,20 @@ const StationCard = memo(function StationCard({
             <Car className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
             {formatDrivingSummary(item)}
           </p>
+          {trafficLabel && (
+            <span
+              className={cn(
+                "mt-1 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5",
+                "text-[10px] font-semibold tabular-nums",
+                "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                "motion-safe:animate-in motion-safe:fade-in",
+              )}
+              title={`Retraso por tráfico: ${trafficLabel}`}
+            >
+              <TrafficCone className="h-2.5 w-2.5 shrink-0" aria-hidden />
+              {trafficLabel} tráfico
+            </span>
+          )}
         </div>
         <div className="pl-2">
           <p className="text-muted-foreground">Desglose</p>
@@ -236,7 +260,7 @@ export function StationList({
 
   if (isLoading) {
     return (
-      <div className="space-y-2.5 p-4">
+      <div className="space-y-2.5 p-4 motion-safe:animate-in motion-safe:fade-in">
         <RecommendationSkeleton />
         <RecommendationSkeleton />
         <RecommendationSkeleton />

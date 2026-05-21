@@ -21,6 +21,7 @@ export interface RecommendationItem {
   total_cost: number;
   driving_distance_km?: number | null;
   driving_duration_min?: number | null;
+  traffic_delay_seconds?: number | null;
   consumption_mode?: ConsumptionMode | null;
   consumption_l_per_100km?: number | null;
 }

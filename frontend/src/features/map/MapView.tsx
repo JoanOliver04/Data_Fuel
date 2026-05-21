@@ -21,6 +21,15 @@ import type { RecommendationItem } from "@/features/recommendations/types";
 import { formatDrivingSummary } from "@/features/recommendations/utils";
 import type { FuelType } from "@/types/fuel";
 
+// Users who opt out of motion get instant map jumps instead of animated pans.
+function reducedMotionDuration(normal: number): number {
+  const reduce =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return reduce ? 0 : normal;
+}
+
 // ── Icon factory ────────────────────────────────────────────────────────────
 
 const RANK_COLORS = ["#f59e0b", "#94a3b8", "#b45309"];
@@ -87,7 +96,7 @@ function FlyToHandler({ lat, lon }: FlyToHandlerProps) {
     const key = `${lat},${lon}`;
     if (key !== prev.current) {
       prev.current = key;
-      map.flyTo([lat, lon], Math.max(map.getZoom(), 13), { duration: 1.2 });
+      map.flyTo([lat, lon], Math.max(map.getZoom(), 13), { duration: reducedMotionDuration(1.2) });
     }
   }, [lat, lon, map]);
 
@@ -110,7 +119,7 @@ function FlyToStation({ items, selectedId }: FlyToStationProps) {
       const station = items.find((s) => s.station_id === selectedId);
       if (station) {
         map.flyTo([station.latitude, station.longitude], Math.max(map.getZoom(), 14), {
-          duration: 0.8,
+          duration: reducedMotionDuration(0.8),
         });
       }
     }

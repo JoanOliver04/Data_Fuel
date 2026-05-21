@@ -102,3 +102,17 @@
     @apply bg-muted-foreground/25;
   }
 }
+
+/* Honour the OS "reduce motion" setting: neutralise animations and transitions
+   for users who opt out. The `motion-safe:` variants already gate entrance
+   animations; this is the safety net for transitions and smooth scrolling. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
