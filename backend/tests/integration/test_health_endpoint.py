@@ -12,7 +12,34 @@ async def test_health_returns_ok(api_client: AsyncClient) -> None:
 
     assert response.status_code == 200
     body = response.json()
+    # tomtom_quota is omitted (response_model_exclude_none) outside TomTom mode;
+    # the hermetic test settings use EUCLIDEAN.
     assert body == {"status": "ok", "version": "0.1.0", "name": "Data Fuel API"}
+
+
+async def test_health_exposes_tomtom_quota_in_tomtom_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    monkeypatch.setenv("DISTANCE_MODE", "DRIVING_TOMTOM")
+    monkeypatch.setenv("TOMTOM_API_KEY", "dummy")
+    monkeypatch.setenv("SYNC_ON_STARTUP", "false")
+    monkeypatch.setenv("SCHEDULER_ENABLED", "false")
+    get_settings.cache_clear()
+
+    app = create_app()
+    app.state.limiter.enabled = False
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/api/v1/health")
+
+    assert response.status_code == 200
+    quota = response.json()["tomtom_quota"]
+    assert quota is not None
+    assert quota["limit"] == 2400  # default daily limit
+    assert quota["exhausted"] is False
+    assert "used" in quota
+    assert "date" in quota
 
 
 async def test_openapi_hidden_when_debug_disabled(api_client: AsyncClient) -> None:

@@ -129,7 +129,8 @@ sequenceDiagram
     participant C as TTLCache (5 min)
     participant S as cost_calculator
     participant DB as Station repo / SQLite
-    participant ORS as ORS Matrix API
+    participant RP as RoutingProvider
+    participant Ext as ORS / TomTom Matrix
 
     U->>F: Enter location + litres
     F->>R: GET /recommendations?lat&lon&liters&fuel_type
@@ -143,10 +144,14 @@ sequenceDiagram
         R->>DB: find_candidates (bbox / radius + fuel filter pushed to SQL)
         DB-->>R: candidate stations
         R->>S: pre-rank top N by haversine + price
-        S-->>R: top N candidates
-        R->>ORS: matrix(top N) — driving distance & duration
-        ORS-->>R: per-station distances
-        R->>S: final rank with driving cost
+        S-->>R: top N candidates (capped ≤100)
+        R->>RP: matrix(top N) — provider chosen by DISTANCE_MODE
+        opt driving mode (ORS / TomTom)
+            RP->>Ext: matrix request
+            Ext-->>RP: distance · duration · traffic delay
+        end
+        RP-->>R: per-station legs (haversine fallback on any failure)
+        R->>S: final rank with driving cost + traffic
         S-->>R: top limit by total_cost
         R->>C: store
         R-->>F: list[RecommendationOut] (gzip-compressed)
@@ -182,7 +187,7 @@ sequenceDiagram
 
 ### Core
 - **Cost ranking** — haversine distance + the cost formula above, with configurable `K`, max distance, and result limit.
-- **Optional driving distance** — when `DISTANCE_MODE=DRIVING`, the top-N candidates (by haversine cost) go through the OpenRouteService Matrix API for real road distance and duration; otherwise haversine alone is used.
+- **Pluggable distance providers** — a `RoutingProvider` abstraction selects the distance source from `DISTANCE_MODE`: straight-line haversine, OpenRouteService driving distance, or TomTom traffic-aware ETA. The top-N candidates (by haversine cost) go through the chosen Matrix API; any provider failure degrades gracefully to haversine. See [Distance providers](#distance-providers).
 - **Real-time data** — hourly upsert from MITECO keeps station metadata and current prices fresh; every sync also appends a row to `price_history` for ML training and charting.
 - **Interactive map** — Leaflet markers for every ranked station, centred on the user.
 - **Price history** — per-station chart whose component (~300 KB Recharts) and data are *both* deferred until the user expands a card.
@@ -568,10 +573,25 @@ A focused optimisation pass moved the hot path off the slow rails. Each change k
 | Layer | Change | Why it matters |
 |---|---|---|
 | SQL | `StationRepository.find_candidates(fuel_type, bbox, radius_origin)` pushes the bounding-box / radius and the *fuel-availability* filter (`price_<fuel> IS NOT NULL`) into the `WHERE` clause. | Avoids hydrating the full `stations` table (~10 k rows in production) on every `/recommendations` call — the typical city-radius query returns 50–300 rows instead. |
-| ORS | When `DISTANCE_MODE=DRIVING`, candidates are first pre-ranked by haversine + price and only the top *N* (capped at 100) are sent to the OpenRouteService Matrix API. | Driving distance ≥ haversine, so the cheapest station is virtually guaranteed to live in the haversine top-N. Cuts ORS quota usage and latency by ~5× in dense areas. |
-| Cache | `app/core/cache.TTLCache` — async-safe (`asyncio.Lock`), 5-min TTL — keys every `/recommendations` request by its full param tuple. Invalidated after each `SyncService.run()`. | Same params return in <1 ms instead of triggering the full DB + ORS pipeline. Stale prices are impossible because the sync clears the cache. |
+| Routing | In any driving mode, candidates are first pre-ranked by haversine + price and only the top *N* (capped at 100) are sent to the routing Matrix API (ORS or TomTom). | Driving distance ≥ haversine, so the cheapest station is virtually guaranteed to live in the haversine top-N. Cuts provider quota usage and latency by ~5× in dense areas, and bounds the TomTom daily-quota spend. |
+| Cache | `app/core/cache.TTLCache` — async-safe (`asyncio.Lock`), 5-min TTL — keys every `/recommendations` request by its full param tuple. Invalidated after each `SyncService.run()`. | Same params return in <1 ms instead of triggering the full DB + routing pipeline. Stale prices are impossible because the sync clears the cache. |
 | Wire | `GZipMiddleware(minimum_size=1024)`. | JSON payloads ≥1 KB shrink ~70 %; tiny error/health responses stay uncompressed. |
 | Bundle | Vite `manualChunks` splits `react-vendor`, `leaflet`, `recharts`, `radix`, `query`. Routes (`Settings`, `NotFound`) and `PriceHistoryChart` are `React.lazy`-loaded. | Initial JS drops from one ~480 KB chunk to ~310 KB cached vendors + ~85 KB app code. Recharts (~380 KB) only loads when a user expands a price-history card. |
+
+### Distance providers
+
+`DISTANCE_MODE` selects a `RoutingProvider` implementation behind a common port. All three return the same `RouteLeg` shape, so the cost calculator and the `/recommendations` contract are identical across modes.
+
+| Mode | Distance source | ETA | Traffic-aware | Quota cost / request | When to use |
+|---|---|---|---|---|---|
+| `EUCLIDEAN` / `HAVERSINE` | Great-circle approximation | No | No | Free | Dev / offline / tests |
+| `DRIVING` / `DRIVING_ORS` | OpenRouteService Matrix | Yes | No | 1 ORS request (free tier ~2 000/day) | Production without a TomTom key |
+| `DRIVING_TOMTOM` | TomTom Matrix Routing v2 | Yes | **Yes** | 1 TomTom request (free tier ~2 500/day) | Recommended when a TomTom key is available |
+
+- `DRIVING` is a backward-compatible alias of `DRIVING_ORS`; `HAVERSINE` of `EUCLIDEAN`.
+- **Graceful degradation:** a driving provider that fails (network, 5xx after retries, 429, timeout, schema mismatch) — or a single unroutable leg — falls back to the haversine distance for the affected legs and never raises. A driving mode configured without its API key also degrades to haversine. The current fallback chain is **TomTom → haversine** (ORS is not chained as a middle tier).
+- **Quota guard:** `DRIVING_TOMTOM` keeps a process-local daily request counter (`TOMTOM_DAILY_QUOTA_LIMIT`, default 2 400 — TomTom's ~2 500 free tier minus a safety margin). Once the limit is hit it short-circuits to haversine until UTC midnight. The live counter is exposed on `GET /api/v1/health` as `tomtom_quota` when this mode is active.
+- See [ADR 0007](docs/adr/0007-tomtom-routing-provider.md) for the design rationale.
 
 ---
 
