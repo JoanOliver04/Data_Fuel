@@ -59,8 +59,12 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_distance_mode(cls, value: str) -> str:
         v = str(value).strip().upper()
-        if v not in {"EUCLIDEAN", "DRIVING", "DRIVING_TOMTOM"}:
-            raise ValueError("DISTANCE_MODE must be 'EUCLIDEAN', 'DRIVING', or 'DRIVING_TOMTOM'")
+        valid = {"EUCLIDEAN", "HAVERSINE", "DRIVING", "DRIVING_ORS", "DRIVING_TOMTOM"}
+        if v not in valid:
+            raise ValueError(
+                "DISTANCE_MODE must be one of: EUCLIDEAN, HAVERSINE, DRIVING, "
+                "DRIVING_ORS, DRIVING_TOMTOM"
+            )
         return v
 
     # ─── TomTom Routing (Matrix Routing v2) ───────────────

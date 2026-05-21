@@ -48,6 +48,7 @@ class StationCost:
     total_cost: Decimal
     driving_distance_km: float | None = None
     driving_duration_min: float | None = None
+    traffic_delay_seconds: int | None = None
     consumption_mode: ConsumptionMode | None = None
     consumption_l_per_100km: float | None = None
 
@@ -157,6 +158,9 @@ def rank_stations(
                     round(dist_info.driving_duration_min, 1)
                     if dist_info is not None and dist_info.driving_duration_min is not None
                     else None
+                ),
+                traffic_delay_seconds=(
+                    dist_info.traffic_delay_seconds if dist_info is not None else None
                 ),
                 consumption_mode=mode,
                 consumption_l_per_100km=consumption,

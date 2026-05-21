@@ -19,20 +19,31 @@ logger = logging.getLogger(__name__)
 
 class DistanceMode(StrEnum):
     EUCLIDEAN = "EUCLIDEAN"
-    DRIVING = "DRIVING"
-    # Selected by the routing-provider factory. DistanceService itself treats
-    # any non-DRIVING mode as EUCLIDEAN, so the legacy DistanceService path
-    # (still used by the endpoint) is unaffected until the factory is wired in.
+    HAVERSINE = "HAVERSINE"  # alias of EUCLIDEAN (straight-line distance)
+    DRIVING = "DRIVING"  # legacy alias of DRIVING_ORS
+    DRIVING_ORS = "DRIVING_ORS"
     DRIVING_TOMTOM = "DRIVING_TOMTOM"
+
+    @property
+    def is_driving(self) -> bool:
+        """True for modes that need a road-distance provider (vs straight-line)."""
+        return self in _DRIVING_MODES
+
+
+# DRIVING kept as the legacy alias for DRIVING_ORS; both route through ORS.
+_DRIVING_MODES = frozenset(
+    {DistanceMode.DRIVING, DistanceMode.DRIVING_ORS, DistanceMode.DRIVING_TOMTOM}
+)
 
 
 @dataclass(frozen=True, slots=True)
 class DistanceResult:
-    """Distance (and optional driving time) between user and one station."""
+    """Distance (and optional driving time/traffic) between user and one station."""
 
     distance_km: float
     driving_distance_km: float | None
     driving_duration_min: float | None
+    traffic_delay_seconds: int | None = None
 
 
 class DistanceService:

@@ -1,15 +1,15 @@
 """Routing provider factory — selects an implementation from settings.
 
-Maps the existing ``DISTANCE_MODE`` values to providers, preserving today's
-behaviour exactly:
-    EUCLIDEAN                 → HaversineProvider
-    DRIVING (with key)        → OrsMatrixProvider
-    DRIVING (no key)          → HaversineProvider   (matches DistanceService fallback)
-    DRIVING_TOMTOM (with key) → TomTomMatrixProvider
-    DRIVING_TOMTOM (no key)   → HaversineProvider
+Maps ``DISTANCE_MODE`` to a provider, preserving today's behaviour:
+    EUCLIDEAN | HAVERSINE          → HaversineProvider
+    DRIVING | DRIVING_ORS (key)    → OrsMatrixProvider
+    DRIVING | DRIVING_ORS (no key) → HaversineProvider   (matches old fallback)
+    DRIVING_TOMTOM (with key)      → TomTomMatrixProvider
+    DRIVING_TOMTOM (no key)        → HaversineProvider
 
-This factory is not yet used by the recommendations endpoint; the endpoint
-still runs through DistanceService until a later wiring phase.
+``DRIVING`` is the legacy alias of ``DRIVING_ORS``; ``HAVERSINE`` of
+``EUCLIDEAN``. A missing key degrades to haversine rather than failing, so a
+misconfigured driving mode never breaks the endpoint.
 """
 
 from __future__ import annotations
@@ -31,9 +31,9 @@ log = logging.getLogger(__name__)
 def get_routing_provider(settings: Settings) -> RoutingProvider:
     """Return the routing provider for the configured ``DISTANCE_MODE``."""
     mode = DistanceMode(settings.distance_mode)
-    if mode is DistanceMode.DRIVING:
+    if mode in (DistanceMode.DRIVING, DistanceMode.DRIVING_ORS):
         if not settings.ors_api_key:
-            log.warning("DRIVING mode without ORS_API_KEY — using haversine provider")
+            log.warning("%s mode without ORS_API_KEY — using haversine provider", mode.value)
             return HaversineProvider()
         return OrsMatrixProvider(ORSClient())
     if mode is DistanceMode.DRIVING_TOMTOM:

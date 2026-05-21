@@ -212,7 +212,7 @@ async def test_sync_clears_recommendations_cache(api_client, two_stations):
 async def test_recommendations_prerank_caps_ors_destinations(
     api_client, db, monkeypatch
 ):
-    """When DRIVING mode is active and many stations sit in range, the ORS
+    """When a driving mode is active and many stations sit in range, the routing
     Matrix call must receive a bounded subset (top-N by haversine cost),
     not the full station list. Verifies the pre-rank guardrails."""
     from app.api.v1.endpoints import recommendations as rec_mod
@@ -252,3 +252,102 @@ async def test_recommendations_prerank_caps_ors_destinations(
     assert received, "_compute_distances was not invoked"
     # Must receive at most the pre-rank cap (40), not the full 200.
     assert received[0] <= 40, f"_compute_distances got {received[0]} stations, expected ≤40"
+
+
+# ── routing provider wiring ───────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_recommendations_driving_tomtom_exposes_traffic(api_client, db, monkeypatch):
+    """A driving mode routes through the factory; TomTom traffic + ETA reach the
+    response. The provider is stubbed so no real TomTom call is made."""
+    from app.api.v1.endpoints import recommendations as rec_mod
+    from app.core.config import get_settings
+    from app.services.routing import RouteLeg
+
+    monkeypatch.setenv("DISTANCE_MODE", "DRIVING_TOMTOM")
+    monkeypatch.setenv("TOMTOM_API_KEY", "dummy")
+    get_settings.cache_clear()
+
+    db.add(_station(1, 39.471, -0.377))
+    await db.commit()
+
+    class _StubProvider:
+        async def matrix(self, origin, destinations):
+            return [
+                RouteLeg(
+                    distance_km=4.2,
+                    duration_seconds=480,
+                    traffic_delay_seconds=120,
+                    provider="tomtom",
+                    failed=False,
+                )
+                for _ in destinations
+            ]
+
+    monkeypatch.setattr(rec_mod, "get_routing_provider", lambda settings: _StubProvider())
+
+    resp = await api_client.get(
+        "/api/v1/recommendations",
+        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasolina_95"},
+    )
+    assert resp.status_code == 200
+    item = resp.json()[0]
+    assert item["driving_distance_km"] == 4.2
+    assert item["driving_duration_min"] == 8.0  # 480 s → 8 min
+    assert item["traffic_delay_seconds"] == 120
+
+
+@pytest.mark.asyncio
+async def test_recommendations_failed_leg_falls_back_to_haversine(api_client, db, monkeypatch):
+    """A degraded (failed) leg exposes no driving/traffic data — ranking uses
+    the straight-line distance, preserving the pre-routing behaviour."""
+    from app.api.v1.endpoints import recommendations as rec_mod
+    from app.core.config import get_settings
+    from app.services.routing import RouteLeg
+
+    monkeypatch.setenv("DISTANCE_MODE", "DRIVING_TOMTOM")
+    monkeypatch.setenv("TOMTOM_API_KEY", "dummy")
+    get_settings.cache_clear()
+
+    db.add(_station(1, 39.471, -0.377))
+    await db.commit()
+
+    class _FailingProvider:
+        async def matrix(self, origin, destinations):
+            return [
+                RouteLeg(
+                    distance_km=9.9,  # haversine fallback distance
+                    duration_seconds=None,
+                    traffic_delay_seconds=None,
+                    provider="tomtom",
+                    failed=True,
+                )
+                for _ in destinations
+            ]
+
+    monkeypatch.setattr(rec_mod, "get_routing_provider", lambda settings: _FailingProvider())
+
+    resp = await api_client.get(
+        "/api/v1/recommendations",
+        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasolina_95"},
+    )
+    assert resp.status_code == 200
+    item = resp.json()[0]
+    assert item["driving_distance_km"] is None
+    assert item["driving_duration_min"] is None
+    assert item["traffic_delay_seconds"] is None
+
+
+@pytest.mark.asyncio
+async def test_recommendations_euclidean_traffic_delay_is_null(api_client, two_stations):
+    """Additive contract: the new field is present and null in EUCLIDEAN mode."""
+    resp = await api_client.get(
+        "/api/v1/recommendations",
+        params={"lat": USER_LAT, "lon": USER_LON, "liters": 40, "fuel_type": "gasolina_95"},
+    )
+    assert resp.status_code == 200
+    item = resp.json()[0]
+    assert "traffic_delay_seconds" in item
+    assert item["traffic_delay_seconds"] is None
+    assert item["driving_distance_km"] is None

@@ -33,6 +33,7 @@ class RecommendationOut(BaseModel):
     total_cost: Decimal
     driving_distance_km: float | None = None
     driving_duration_min: float | None = None
+    traffic_delay_seconds: int | None = None
     consumption_mode: ConsumptionMode | None = None
     consumption_l_per_100km: float | None = None
 

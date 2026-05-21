@@ -15,11 +15,7 @@ from app.core.rate_limit import limiter
 from app.domain.entities.fuel_type import FuelType
 from app.domain.entities.vehicle_profile import ConsumptionMode
 from app.domain.services.cost_calculator import KmCostResolver, rank_stations
-from app.domain.services.distance_service import (
-    DistanceMode,
-    DistanceResult,
-    DistanceService,
-)
+from app.domain.services.distance_service import DistanceMode, DistanceResult
 from app.domain.services.vehicle_profile_service import (
     ConsumptionProfile,
     km_cost_for_distance,
@@ -27,22 +23,23 @@ from app.domain.services.vehicle_profile_service import (
 from app.infrastructure.database.models.station import StationORM
 from app.infrastructure.database.models.vehicle_profile import VehicleProfileORM
 from app.infrastructure.database.session import get_async_session
-from app.infrastructure.external.ors import ORSClient
 from app.repositories.station_repository import StationRepository
 from app.repositories.vehicle_profile_repository import VehicleProfileRepository
+from app.services.routing import RouteLeg, get_routing_provider
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
-# When DRIVING mode is active, the ORS Matrix API is the bottleneck (network +
-# rate limits + paid quota). We pre-rank candidates by haversine + price and
-# only send the most promising subset to ORS. The driving distance ≥ haversine
-# always, so the cheapest station by driving cost is virtually guaranteed to
-# fall in the top-N by haversine cost when N is generous.
-_ORS_CANDIDATE_MULTIPLIER = 4
-_ORS_CANDIDATE_MIN = 30
-_ORS_CANDIDATE_MAX = 100
+# When a driving mode is active, the routing matrix call (ORS or TomTom) is the
+# bottleneck (network + rate limits + paid quota). We pre-rank candidates by
+# haversine + price and only send the most promising subset to the provider.
+# The driving distance ≥ haversine always, so the cheapest station by driving
+# cost is virtually guaranteed to fall in the top-N by haversine cost when N is
+# generous. This cap also protects the TomTom daily quota from large bboxes.
+_ROUTING_CANDIDATE_MULTIPLIER = 4
+_ROUTING_CANDIDATE_MIN = 30
+_ROUTING_CANDIDATE_MAX = 100
 
 
 @router.get("", response_model=list[RecommendationOut], summary="Rank stations by total cost")
@@ -135,13 +132,13 @@ async def get_recommendations(
 
     resolver = _build_resolver(profile)
 
-    # ORS pre-filter: shrink candidate set to top-N by haversine cost so the
+    # Routing pre-filter: shrink candidate set to top-N by haversine cost so the
     # Matrix call is bounded regardless of how many stations sit in the bbox.
     mode = DistanceMode(settings.distance_mode)
-    if mode is DistanceMode.DRIVING and stations:
+    if mode.is_driving and stations:
         prelim_limit = min(
-            _ORS_CANDIDATE_MAX,
-            max(_ORS_CANDIDATE_MIN, limit * _ORS_CANDIDATE_MULTIPLIER),
+            _ROUTING_CANDIDATE_MAX,
+            max(_ROUTING_CANDIDATE_MIN, limit * _ROUTING_CANDIDATE_MULTIPLIER),
         )
         if len(stations) > prelim_limit:
             prelim = rank_stations(
@@ -160,7 +157,7 @@ async def get_recommendations(
             before = len(stations)
             stations = [s for s in stations if s.id in candidate_ids]
             log.debug(
-                "ORS pre-rank: %d → %d candidates (cap=%d)",
+                "routing pre-rank: %d → %d candidates (cap=%d)",
                 before,
                 len(stations),
                 prelim_limit,
@@ -252,13 +249,42 @@ async def _compute_distances(
     user_lon: float,
     stations: Sequence[StationORM],
 ) -> dict[int, DistanceResult] | None:
-    """Return per-station driving distances when DRIVING mode is active; else None."""
+    """Return per-station driving distances when a driving mode is active; else None.
+
+    Selects the provider via the routing factory (ORS / TomTom / haversine) and
+    maps each ``RouteLeg`` back to the ``DistanceResult`` the cost calculator
+    consumes, so ranking and the response contract are unchanged.
+    """
     mode = DistanceMode(settings.distance_mode)
-    if mode is DistanceMode.EUCLIDEAN or not stations:
+    if not mode.is_driving or not stations:
         return None
 
-    ors_client = ORSClient() if settings.ors_api_key else None
-    service = DistanceService(mode=mode, ors_client=ors_client)
+    provider = get_routing_provider(settings)
     destinations = [(s.latitude, s.longitude) for s in stations]
-    results = await service.compute((user_lat, user_lon), destinations)
-    return {station.id: result for station, result in zip(stations, results, strict=True)}
+    legs = await provider.matrix((user_lat, user_lon), destinations)
+    return {
+        station.id: _leg_to_distance_result(leg)
+        for station, leg in zip(stations, legs, strict=True)
+    }
+
+
+def _leg_to_distance_result(leg: RouteLeg) -> DistanceResult:
+    """Map a routing ``RouteLeg`` to the cost calculator's ``DistanceResult``.
+
+    A failed leg (provider degraded to haversine) or a provider without a
+    duration (haversine itself) exposes no driving/traffic data, so ranking
+    falls back to the straight-line distance exactly as before.
+    """
+    if leg.failed or leg.duration_seconds is None:
+        return DistanceResult(
+            distance_km=leg.distance_km,
+            driving_distance_km=None,
+            driving_duration_min=None,
+            traffic_delay_seconds=None,
+        )
+    return DistanceResult(
+        distance_km=leg.distance_km,
+        driving_distance_km=leg.distance_km,
+        driving_duration_min=leg.duration_seconds / 60.0,
+        traffic_delay_seconds=leg.traffic_delay_seconds,
+    )

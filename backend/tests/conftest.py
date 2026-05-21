@@ -44,6 +44,13 @@ def test_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("DEBUG", "false")
     monkeypatch.setenv("SYNC_ON_STARTUP", "false")
     monkeypatch.setenv("SCHEDULER_ENABLED", "false")
+    # Hermetic default: straight-line distances and no API keys, so the suite
+    # never makes real ORS/TomTom calls regardless of the developer's .env.
+    # Tests that exercise driving modes set these explicitly and mock the
+    # provider/transport.
+    monkeypatch.setenv("DISTANCE_MODE", "EUCLIDEAN")
+    monkeypatch.setenv("ORS_API_KEY", "")
+    monkeypatch.setenv("TOMTOM_API_KEY", "")
     return get_settings()
 
 
