@@ -11,7 +11,7 @@ from alembic.config import Config
 from fastapi import FastAPI
 
 from app.core.config import get_settings
-from app.core.scheduler import create_scheduler
+from app.core.scheduler import add_retrain_job, create_scheduler
 from app.domain.services.prediction_service import PredictionService
 from app.infrastructure.database import Base, get_engine, get_session_factory
 from app.infrastructure.database.models import (  # noqa: F401
@@ -76,6 +76,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     scheduler = None
     if settings.scheduler_enabled:
         scheduler = create_scheduler(sync_svc, settings.sync_interval_seconds)
+    if settings.retrain_enabled:
+        if scheduler is None:
+            from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+            scheduler = AsyncIOScheduler()
+        add_retrain_job(scheduler, settings)
+    if scheduler is not None:
         scheduler.start()
 
     yield

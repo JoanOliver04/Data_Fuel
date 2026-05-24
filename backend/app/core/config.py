@@ -89,6 +89,22 @@ class Settings(BaseSettings):
     retrain_max_mae_regression_pct: float = Field(default=0.10, ge=0.0)
     retrain_max_r2_absolute_drop: float = Field(default=0.05, ge=0.0)
 
+    # ─── ML retraining schedule ───────────────────────────
+    # Opt-in: the weekly retrain is heavy, so it is disabled by default.
+    retrain_enabled: bool = False
+    # 5-field cron (UTC). Default: every Sunday at 03:00.
+    retrain_cron: str = Field(default="0 3 * * 0")
+    # Hard wall-clock ceiling for one scheduled run; the job aborts past this.
+    retrain_timeout_seconds: int = Field(default=3600, ge=60)
+
+    @field_validator("retrain_cron", mode="before")
+    @classmethod
+    def _validate_cron(cls, value: str) -> str:
+        v = str(value).strip()
+        if len(v.split()) != 5:
+            raise ValueError("RETRAIN_CRON must be a 5-field cron expression, e.g. '0 3 * * 0'")
+        return v
+
     # ─── Rate limiting ────────────────────────────────────
     geocoding_rate_limit: str = "10/minute"
     predictions_rate_limit: str = "30/minute"
