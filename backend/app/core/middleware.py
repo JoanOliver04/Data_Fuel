@@ -1,11 +1,13 @@
 """HTTP request-logging middleware.
 
-Logs every request as ``METHOD path → status (Xms)`` and tags every log
-emitted while the request is in flight with a short correlation id, so
-nested service logs can be traced back to the originating HTTP call.
+Tags every request with a per-hop ``request_id`` and a cross-service
+``correlation_id`` (adopted from an inbound ``X-Correlation-ID`` /
+``X-Request-ID`` header when present), so nested service logs trace back to the
+originating call. Emits one structured completion log per request with timing,
+status, client IP and user-agent, elevating slow requests to WARNING.
 
-Unhandled exceptions are logged with full traceback before being re-raised
-so FastAPI's exception handlers still produce the response.
+Unhandled exceptions are logged with full traceback before being re-raised so
+FastAPI's exception handlers still produce the response.
 """
 
 from __future__ import annotations
@@ -19,13 +21,24 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.core.logging import request_id_ctx
+from app.core.config import get_settings
+from app.core.logging import correlation_id_ctx, request_id_ctx
 
 log = logging.getLogger("app.http")
 
+_UA_MAX_LEN = 200
+
+
+def _client_ip(request: Request) -> str:
+    """Best-effort client IP — first X-Forwarded-For hop, else the socket peer."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "-"
+
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log every HTTP request with timing + status + correlation id."""
+    """Log every HTTP request with timing + status + correlation ids."""
 
     async def dispatch(
         self,
@@ -33,12 +46,20 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         rid = uuid.uuid4().hex[:8]
-        token = request_id_ctx.set(rid)
+        incoming = request.headers.get("x-correlation-id") or request.headers.get(
+            "x-request-id"
+        )
+        cid = incoming or rid
+        rid_token = request_id_ctx.set(rid)
+        cid_token = correlation_id_ctx.set(cid)
         start = time.perf_counter()
 
         method = request.method
         path = request.url.path
         query = request.url.query
+        qs = f"?{query}" if query else ""
+        client_ip = _client_ip(request)
+        user_agent = request.headers.get("user-agent", "-")[:_UA_MAX_LEN]
 
         try:
             response = await call_next(request)
@@ -48,28 +69,50 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "%s %s%s → 500 (%.1fms) UNHANDLED",
                 method,
                 path,
-                f"?{query}" if query else "",
+                qs,
                 elapsed_ms,
+                extra={
+                    "http_method": method,
+                    "http_path": path,
+                    "http_status": 500,
+                    "duration_ms": round(elapsed_ms, 1),
+                    "client_ip": client_ip,
+                    "user_agent": user_agent,
+                },
             )
-            request_id_ctx.reset(token)
+            correlation_id_ctx.reset(cid_token)
+            request_id_ctx.reset(rid_token)
             raise
 
         elapsed_ms = (time.perf_counter() - start) * 1000
-        # 4xx and 5xx surface at WARNING so they're visible without DEBUG.
+        slow = elapsed_ms > get_settings().slow_request_ms
+        # 4xx/5xx and slow requests surface at WARNING so they're visible without DEBUG.
         level = (
             logging.WARNING
-            if response.status_code >= 400
+            if response.status_code >= 400 or slow
             else logging.INFO
         )
         log.log(
             level,
-            "%s %s%s → %d (%.1fms)",
+            "%s %s%s → %d (%.1fms)%s",
             method,
             path,
-            f"?{query}" if query else "",
+            qs,
             response.status_code,
             elapsed_ms,
+            " SLOW" if slow else "",
+            extra={
+                "http_method": method,
+                "http_path": path,
+                "http_status": response.status_code,
+                "duration_ms": round(elapsed_ms, 1),
+                "client_ip": client_ip,
+                "user_agent": user_agent,
+                "slow": slow,
+            },
         )
         response.headers["X-Request-ID"] = rid
-        request_id_ctx.reset(token)
+        response.headers["X-Correlation-ID"] = cid
+        correlation_id_ctx.reset(cid_token)
+        request_id_ctx.reset(rid_token)
         return response

@@ -24,7 +24,11 @@ def create_app() -> FastAPI:
     settings: Settings = get_settings()
 
     # DEBUG override beats LOG_LEVEL — opt-in verbose mode for local dev.
-    setup_logging(level="DEBUG" if settings.debug else settings.log_level)
+    # Text logs in DEBUG (readable locally); JSON in production (machine-readable).
+    setup_logging(
+        level="DEBUG" if settings.debug else settings.log_level,
+        json_format=not settings.debug,
+    )
     log = logging.getLogger("app")
     log.info(
         "Starting %s v%s (debug=%s, distance_mode=%s, log_level=%s)",
