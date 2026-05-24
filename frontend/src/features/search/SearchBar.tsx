@@ -54,7 +54,7 @@ interface SearchBarProps {
 
 export function SearchBar({ isSearching }: SearchBarProps) {
   const { userLat, userLon, setLocation } = useSettingsStore();
-  const { locationLabel, setLocationLabel } = useSearchStore();
+  const { locationLabel, setLocationLabel, clearPin } = useSearchStore();
 
   const [inputValue, setInputValue] = useState(locationLabel);
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
@@ -113,6 +113,8 @@ export function SearchBar({ isSearching }: SearchBarProps) {
     const label = addr?.city ?? addr?.town ?? addr?.village ?? addr?.municipality ?? fallback.trim();
     setLocationLabel(label);
     setInputValue(label);
+    // A municipality/CP search explicitly overrides any manual pin.
+    clearPin();
     setLocation(parseFloat(result.lat), parseFloat(result.lon));
     setSuggestions([]);
     setShowDropdown(false);
@@ -134,6 +136,8 @@ export function SearchBar({ isSearching }: SearchBarProps) {
       async (pos) => {
         const lat = Math.round(pos.coords.latitude * 1e6) / 1e6;
         const lon = Math.round(pos.coords.longitude * 1e6) / 1e6;
+        // Switching back to GPS exits pin mode and drops the manual pin.
+        clearPin();
         setLocation(lat, lon);
         const label = await reverseGeocode(lat, lon);
         setLocationLabel(label);
