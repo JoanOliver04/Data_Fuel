@@ -87,6 +87,22 @@ cache_size = Gauge(
 )
 
 
+# ── Scheduler ─────────────────────────────────────────────────────────────────
+scheduler_job_runs_total = Counter(
+    "datafuel_scheduler_job_runs_total",
+    "APScheduler job runs by job id and outcome (executed, error, missed).",
+    ["job", "outcome"],
+    registry=REGISTRY,
+)
+scheduler_job_duration_seconds = Histogram(
+    "datafuel_scheduler_job_duration_seconds",
+    "APScheduler job execution time in seconds by job id.",
+    ["job"],
+    buckets=(0.1, 0.5, 1.0, 5.0, 30.0, 60.0, 300.0, 1800.0, 3600.0),
+    registry=REGISTRY,
+)
+
+
 def route_template(request: Request) -> str:
     """Return the matched route template (low cardinality) or ``"unmatched"``.
 

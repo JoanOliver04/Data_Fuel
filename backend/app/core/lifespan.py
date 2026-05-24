@@ -11,7 +11,11 @@ from alembic.config import Config
 from fastapi import FastAPI
 
 from app.core.config import get_settings
-from app.core.scheduler import add_retrain_job, create_scheduler
+from app.core.scheduler import (
+    add_retrain_job,
+    attach_scheduler_metrics,
+    create_scheduler,
+)
 from app.domain.services.prediction_service import PredictionService
 from app.infrastructure.database import Base, get_engine, get_session_factory
 from app.infrastructure.database.models import (  # noqa: F401
@@ -83,6 +87,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             scheduler = AsyncIOScheduler()
         add_retrain_job(scheduler, settings)
     if scheduler is not None:
+        attach_scheduler_metrics(scheduler)
         scheduler.start()
 
     # Expose the scheduler for the readiness/details health probes.
