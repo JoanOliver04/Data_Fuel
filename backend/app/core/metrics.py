@@ -71,6 +71,22 @@ http_exceptions_total = Counter(
 )
 
 
+# ── Cache ─────────────────────────────────────────────────────────────────────
+cache_operations_total = Counter(
+    "datafuel_cache_operations_total",
+    "In-process cache operations by cache name and result "
+    "(hit, miss, set, expiration, invalidation).",
+    ["cache", "result"],
+    registry=REGISTRY,
+)
+cache_size = Gauge(
+    "datafuel_cache_entries",
+    "Current number of live entries per in-process cache.",
+    ["cache"],
+    registry=REGISTRY,
+)
+
+
 def route_template(request: Request) -> str:
     """Return the matched route template (low cardinality) or ``"unmatched"``.
 
