@@ -17,6 +17,7 @@ from app.infrastructure.database import Base, get_engine, get_session_factory
 from app.infrastructure.database.models import (  # noqa: F401
     PriceHistoryORM,
     StationORM,
+    TrainingRunORM,
     VehicleProfileORM,
 )
 from app.ml.inference.model_loader import load_modelo
