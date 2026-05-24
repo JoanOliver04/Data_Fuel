@@ -30,6 +30,12 @@ from uuid import uuid4
 import httpx
 
 from app.core.config import get_settings
+from app.core.metrics import (
+    external_request_duration_seconds,
+    external_requests_total,
+    external_retries_total,
+    external_timeouts_total,
+)
 from app.infrastructure.external.tomtom.exceptions import (
     TomTomError,
     TomTomRateLimitError,
@@ -158,15 +164,25 @@ class TomTomClient:
         )
 
         start = time.perf_counter()
-        response = await self._post_with_retry(body, req_id)
+        try:
+            response = await self._post_with_retry(body, req_id)
+        except TomTomError:
+            external_request_duration_seconds.labels(provider="tomtom").observe(
+                time.perf_counter() - start
+            )
+            external_requests_total.labels(provider="tomtom", outcome="error").inc()
+            raise
         elapsed_ms = (time.perf_counter() - start) * 1000
+        external_request_duration_seconds.labels(provider="tomtom").observe(elapsed_ms / 1000)
 
         if response.status_code == 429:
+            external_requests_total.labels(provider="tomtom", outcome="error").inc()
             log.warning("TomTom matrix req=%s rate-limited (429) after retries", req_id)
             raise TomTomRateLimitError("TomTom rate limit exceeded (429)")
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
+            external_requests_total.labels(provider="tomtom", outcome="error").inc()
             log.error(
                 "TomTom matrix req=%s → %d after %.1fms: %s",
                 req_id,
@@ -176,6 +192,7 @@ class TomTomClient:
             )
             raise TomTomError(f"TomTom request failed: {exc}") from exc
 
+        external_requests_total.labels(provider="tomtom", outcome="success").inc()
         summaries = self._parse(response, len(destinations), req_id)
         ok = sum(1 for s in summaries if s is not None)
         log.info(
@@ -206,6 +223,7 @@ class TomTomClient:
             except httpx.TimeoutException as exc:
                 if attempt < self._max_retries:
                     delay = self._backoff(attempt)
+                    external_retries_total.labels(provider="tomtom").inc()
                     log.warning(
                         "TomTom matrix req=%s timeout, retry %d/%d after %.1fs",
                         req_id,
@@ -215,12 +233,14 @@ class TomTomClient:
                     )
                     await asyncio.sleep(delay)
                     continue
+                external_timeouts_total.labels(provider="tomtom").inc()
                 raise TomTomTimeoutError(f"TomTom request timed out: {exc}") from exc
             except httpx.HTTPError as exc:
                 raise TomTomError(f"TomTom request failed: {exc}") from exc
 
             if response.status_code in _RETRYABLE_STATUSES and attempt < self._max_retries:
                 delay = self._retry_delay(response, attempt)
+                external_retries_total.labels(provider="tomtom").inc()
                 log.warning(
                     "TomTom matrix req=%s status=%d, retry %d/%d after %.1fs",
                     req_id,

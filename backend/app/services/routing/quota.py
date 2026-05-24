@@ -18,6 +18,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
+from app.core.metrics import (
+    routing_fallbacks_total,
+    tomtom_quota_limit,
+    tomtom_quota_used,
+)
+
 log = logging.getLogger(__name__)
 
 
@@ -57,7 +63,9 @@ class DailyQuotaGuard:
         Logs a single WARNING the first time the limit is hit on a given day.
         """
         self._roll_if_new_day()
+        tomtom_quota_limit.set(limit)
         if self._used >= limit:
+            routing_fallbacks_total.labels(provider="tomtom").inc()
             if not self._breach_logged:
                 log.warning(
                     "TomTom daily quota reached (%d/%d for %s); routing falls back to haversine",
@@ -68,10 +76,13 @@ class DailyQuotaGuard:
                 self._breach_logged = True
             return False
         self._used += 1
+        tomtom_quota_used.set(self._used)
         return True
 
     def snapshot(self, limit: int) -> QuotaSnapshot:
         self._roll_if_new_day()
+        tomtom_quota_used.set(self._used)
+        tomtom_quota_limit.set(limit)
         return QuotaSnapshot(
             date=self._date,
             used=self._used,

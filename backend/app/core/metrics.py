@@ -154,6 +154,51 @@ ml_model_activation_failures_total = Counter(
 )
 
 
+# ── External providers ────────────────────────────────────────────────────────
+external_requests_total = Counter(
+    "datafuel_external_requests_total",
+    "Outbound requests to external providers by provider (miteco, ors, tomtom) "
+    "and outcome (success, error).",
+    ["provider", "outcome"],
+    registry=REGISTRY,
+)
+external_request_duration_seconds = Histogram(
+    "datafuel_external_request_duration_seconds",
+    "Latency of outbound external-provider requests in seconds by provider.",
+    ["provider"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
+    registry=REGISTRY,
+)
+external_retries_total = Counter(
+    "datafuel_external_retries_total",
+    "Retry attempts against external providers by provider.",
+    ["provider"],
+    registry=REGISTRY,
+)
+external_timeouts_total = Counter(
+    "datafuel_external_timeouts_total",
+    "Timed-out requests to external providers by provider.",
+    ["provider"],
+    registry=REGISTRY,
+)
+routing_fallbacks_total = Counter(
+    "datafuel_routing_fallbacks_total",
+    "Times a routing provider fell back to haversine, by provider.",
+    ["provider"],
+    registry=REGISTRY,
+)
+tomtom_quota_used = Gauge(
+    "datafuel_tomtom_quota_used",
+    "TomTom routing requests consumed in the current UTC day.",
+    registry=REGISTRY,
+)
+tomtom_quota_limit = Gauge(
+    "datafuel_tomtom_quota_limit",
+    "Configured TomTom daily routing request limit.",
+    registry=REGISTRY,
+)
+
+
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 scheduler_job_runs_total = Counter(
     "datafuel_scheduler_job_runs_total",

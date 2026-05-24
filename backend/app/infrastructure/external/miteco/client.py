@@ -25,6 +25,7 @@ import httpx
 import truststore
 
 from app.core.config import get_settings
+from app.core.metrics import external_request_duration_seconds, external_requests_total
 from app.infrastructure.external.miteco.schemas import MitecoApiResponse
 
 log = logging.getLogger(__name__)
@@ -95,10 +96,14 @@ class MitecoClient:
             response.raise_for_status()
         except httpx.HTTPError as exc:
             elapsed_ms = (time.perf_counter() - start) * 1000
+            external_request_duration_seconds.labels(provider="miteco").observe(elapsed_ms / 1000)
+            external_requests_total.labels(provider="miteco", outcome="error").inc()
             log.error("MITECO GET %s failed after %.1fms: %s", url, elapsed_ms, exc)
             raise MitecoClientError(f"MITECO request failed: {exc}") from exc
 
         elapsed_ms = (time.perf_counter() - start) * 1000
+        external_request_duration_seconds.labels(provider="miteco").observe(elapsed_ms / 1000)
+        external_requests_total.labels(provider="miteco", outcome="success").inc()
         size_kb = len(response.content) / 1024
         log.info(
             "MITECO GET %s → %d (%.1fms, %.1f KB)",
