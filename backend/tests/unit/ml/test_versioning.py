@@ -122,6 +122,15 @@ def test_list_versions_empty_when_no_archive(tmp_path: Path) -> None:
     assert store.latest_version() is None
 
 
+def test_unique_version_appends_suffix_on_collision(tmp_path: Path) -> None:
+    store = ArtifactStore(tmp_path)
+    assert store.unique_version("2026-05-24T03-00-00") == "2026-05-24T03-00-00"
+    store.prepare_version_dir("2026-05-24T03-00-00")
+    assert store.unique_version("2026-05-24T03-00-00") == "2026-05-24T03-00-00_1"
+    store.prepare_version_dir("2026-05-24T03-00-00_1")
+    assert store.unique_version("2026-05-24T03-00-00") == "2026-05-24T03-00-00_2"
+
+
 # ── validation ─────────────────────────────────────────────────────────────────
 
 

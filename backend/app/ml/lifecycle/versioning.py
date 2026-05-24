@@ -168,6 +168,19 @@ class ArtifactStore:
         return self.version_dir(version) / _MODEL_FILE
 
     # ── Write paths ─────────────────────────────────────────────────────────
+    def unique_version(self, base: str) -> str:
+        """Return ``base`` or ``base_N`` so the version dir is collision-free.
+
+        Guarantees a unique id even when two retrains fall in the same second
+        (``new_version_id`` only has second precision).
+        """
+        candidate = base
+        suffix = 1
+        while self.version_dir(candidate).exists():
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+        return candidate
+
     def prepare_version_dir(self, version: str) -> Path:
         """Create (if needed) and return ``archived/<version>``.
 

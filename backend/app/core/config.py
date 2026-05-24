@@ -31,9 +31,7 @@ class Settings(BaseSettings):
     def _normalize_log_level(cls, value: str) -> str:
         v = str(value).strip().upper()
         if v not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
-            raise ValueError(
-                "LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR, or CRITICAL"
-            )
+            raise ValueError("LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR, or CRITICAL")
         return v
 
     # ─── Database ─────────────────────────────────────────
@@ -81,6 +79,15 @@ class Settings(BaseSettings):
     sync_interval_seconds: int = Field(default=3600, ge=60)
     sync_on_startup: bool = True
     scheduler_enabled: bool = True
+
+    # ─── ML retraining acceptance gate ────────────────────
+    # Absolute guards (optional): a candidate breaching either is always rejected.
+    retrain_max_mae: float | None = Field(default=None, ge=0.0)
+    retrain_min_r2: float | None = None
+    # Relative guards vs the active model: candidate MAE may be at most this
+    # fraction worse, and R² may drop at most this many absolute points.
+    retrain_max_mae_regression_pct: float = Field(default=0.10, ge=0.0)
+    retrain_max_r2_absolute_drop: float = Field(default=0.05, ge=0.0)
 
     # ─── Rate limiting ────────────────────────────────────
     geocoding_rate_limit: str = "10/minute"
