@@ -85,6 +85,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if scheduler is not None:
         scheduler.start()
 
+    # Expose the scheduler for the readiness/details health probes.
+    app.state.scheduler = scheduler
+
     yield
 
     if scheduler is not None:

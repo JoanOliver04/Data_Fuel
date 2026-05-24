@@ -1,6 +1,7 @@
 """FastAPI application entrypoint."""
 
 import logging
+import time
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,6 +54,12 @@ def create_app() -> FastAPI:
         redoc_url=redoc_url,
         openapi_url=openapi_url,
     )
+
+    # Observability state. ``started_at`` is set here (not just in lifespan) so
+    # uptime works under ASGITransport test clients, which skip the lifespan.
+    # ``scheduler`` is populated by the lifespan; default None until then.
+    app.state.started_at = time.monotonic()
+    app.state.scheduler = None
 
     # Rate limiter: slowapi reads ``app.state.limiter`` from the request context.
     app.state.limiter = limiter
