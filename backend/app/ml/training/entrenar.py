@@ -27,7 +27,7 @@ import joblib
 import pandas as pd
 import sklearn
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
 from sklearn.preprocessing import LabelEncoder
 
 logger = logging.getLogger(__name__)
@@ -137,12 +137,14 @@ def ejecutar_entrenamiento(
 
     y_pred = model.predict(X_test)
     mae = float(mean_absolute_error(y_test, y_pred))
+    rmse = float(root_mean_squared_error(y_test, y_pred))
     r2 = float(r2_score(y_test, y_pred))
     r2_oob = float(model.oob_score_)
 
-    logger.info("MAE (time-split holdout): %.4f", mae)
-    logger.info("R²  (time-split holdout): %.4f", r2)
-    logger.info("R²  (out-of-bag estimate): %.4f", r2_oob)
+    logger.info("MAE  (time-split holdout): %.4f", mae)
+    logger.info("RMSE (time-split holdout): %.4f", rmse)
+    logger.info("R²   (time-split holdout): %.4f", r2)
+    logger.info("R²   (out-of-bag estimate): %.4f", r2_oob)
 
     importances = _log_feature_importances(model)
 
@@ -153,6 +155,7 @@ def ejecutar_entrenamiento(
         "features_names": FEATURE_COLUMNS,
         "trained_at": datetime.now(UTC).isoformat(),
         "mae": mae,
+        "rmse": rmse,
         "r2": r2,
         "r2_oob": r2_oob,
         "split_strategy": "time_based",
@@ -174,9 +177,7 @@ def ejecutar_entrenamiento(
     return artifact
 
 
-def _time_split(
-    df: pd.DataFrame, quantile: float
-) -> tuple[pd.DataFrame, pd.DataFrame, Any]:
+def _time_split(df: pd.DataFrame, quantile: float) -> tuple[pd.DataFrame, pd.DataFrame, Any]:
     """Sort by ``fecha`` and split at the given quantile; tail becomes test."""
     df_sorted = df.sort_values("fecha").reset_index(drop=True)
     split_date = df_sorted["fecha"].quantile(quantile)
@@ -187,9 +188,7 @@ def _time_split(
         # to a random 80/20 split so the trainer still produces a model.
         from sklearn.model_selection import train_test_split
 
-        train_df, test_df = train_test_split(
-            df_sorted, test_size=0.2, random_state=42
-        )
+        train_df, test_df = train_test_split(df_sorted, test_size=0.2, random_state=42)
     return train_df, test_df, split_date
 
 
@@ -230,14 +229,10 @@ def _load_and_validate(path: Path, min_rows: int) -> pd.DataFrame:
     actual_cols = list(df.columns)
 
     if actual_cols != _COLUMNS_EXPECTED:
-        raise ValueError(
-            f"Invalid columns {actual_cols}. Expected {_COLUMNS_EXPECTED}."
-        )
+        raise ValueError(f"Invalid columns {actual_cols}. Expected {_COLUMNS_EXPECTED}.")
 
     if len(df) < min_rows:
-        raise ValueError(
-            f"CSV has {len(df)} rows; minimum required is {min_rows}."
-        )
+        raise ValueError(f"CSV has {len(df)} rows; minimum required is {min_rows}.")
 
     df["es_festivo"] = df["es_festivo"].astype(int)
     df["is_low_cost"] = df["is_low_cost"].astype(int)

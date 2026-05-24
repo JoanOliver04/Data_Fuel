@@ -89,9 +89,11 @@ def test_artifact_keys(tmp_path: Path) -> None:
         "features_names",
         "trained_at",
         "mae",
+        "rmse",
         "r2",
     }
     assert required.issubset(set(artifact.keys()))
+    assert artifact["rmse"] >= 0.0
 
 
 def test_artifact_carries_provenance_metadata(tmp_path: Path) -> None:

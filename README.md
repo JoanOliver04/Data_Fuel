@@ -483,6 +483,45 @@ The FastAPI process hot-loads the new artifact on the next lifespan startup thro
 - **Event-driven** — following any national-scale price shock (tax adjustment, geopolitical disruption, refinery outage).
 - A minimum dataset of **100 rows** is enforced at validation time; below this threshold the trainer aborts with a typed `ValueError` rather than persisting a degenerate artifact.
 
+#### 5.1 Automated retraining lifecycle (production)
+
+The manual three-step runbook above is wrapped by an automated, metric-gated lifecycle (`app/ml/lifecycle/`) that retrains, evaluates, and promotes the Random Forest **without downtime or hand-editing files**. See [ADR 0008](docs/adr/0008-automated-ml-retraining.md).
+
+```
+export dataset → train (worker thread) → version + sidecars
+→ evaluate vs active model → atomic activation → hot-reload → invalidate caches → record history
+```
+
+**Versioned artifacts.** Models live under `backend/artifacts/`:
+
+```
+artifacts/
+  modelo_combustible.pkl          # legacy single-file model (still loadable)
+  active/   model.pkl + metadata.json + metrics.json   # the live model
+  archived/ <UTC-version>/ model.pkl + metadata.json + metrics.json
+```
+
+Activation swaps each file into `active/` with `os.replace` — atomic and **symlink-free** (safe on Windows). The loader prefers `active/model.pkl` and falls back to the legacy file, so existing checkouts keep working.
+
+**Acceptance gate.** A freshly trained candidate is promoted only if it stays within tolerance of the currently active model (configurable). A degraded, corrupt, or empty model is **never** activated; the active model stays live. The first model bootstrap-accepts.
+
+**Hot reload + rollback.** `model_loader.reload_modelo()` atomically rebinds the in-memory model (lock-free reads, so in-flight requests are unaffected). If a reload fails after activation, the pipeline rolls the `active` pointer back to the previous version.
+
+**CLI commands** (exit codes: `0` activated · `2` rejected · `1` failed/error):
+
+```bash
+cd datafuel-main/backend
+python -m app.ml.training.retrain                 # full pipeline: export→train→evaluate→activate
+python -m app.ml.training.evaluate [--version V]  # dry-run gate vs active (no activation)
+python -m app.ml.training.activate --version V    # manual promotion / rollback to an archived version
+```
+
+**Weekly schedule (opt-in).** When `RETRAIN_ENABLED=true`, an APScheduler cron job runs the pipeline on `RETRAIN_CRON` (UTC, default Sunday 03:00), bounded by `RETRAIN_TIMEOUT_SECONDS`, with `max_instances=1` + `coalesce` to prevent overlap. Training is offloaded to a worker thread so request serving stays responsive.
+
+**Audit trail.** Every attempt (activated / rejected / failed) is appended to the `training_runs` table — timings, dataset size, metrics, version, and rejection/failure reason — via `TrainingRunRepository`, ready for a future history dashboard.
+
+Relevant settings (see [.env.example](.env.example)): `RETRAIN_ENABLED`, `RETRAIN_CRON`, `RETRAIN_TIMEOUT_SECONDS`, `RETRAIN_MAX_MAE`, `RETRAIN_MIN_R2`, `RETRAIN_MAX_MAE_REGRESSION_PCT`, `RETRAIN_MAX_R2_ABSOLUTE_DROP`.
+
 ### 6. Architectural Decisions & Engineering Trade-offs
 
 The following design choices are deliberate and reviewed against the constraints of a single-region, demo-scale deployment. Each is documented here so a senior reviewer can audit the reasoning without having to reverse-engineer the implementation.
