@@ -17,6 +17,10 @@ import { cn } from "@/lib/utils";
 import { HeatmapLayer } from "@/features/heatmap/HeatmapLayer";
 import { HeatmapLegend } from "@/features/heatmap/HeatmapLegend";
 import type { HeatmapParams } from "@/features/heatmap/types";
+import { PinLocationControl } from "@/features/map/components/PinLocationControl";
+import { PinLocationHint } from "@/features/map/components/PinLocationHint";
+import { UserSelectedMarker } from "@/features/map/components/UserSelectedMarker";
+import { usePinLocationMode } from "@/features/map/hooks/usePinLocationMode";
 import type { RecommendationItem } from "@/features/recommendations/types";
 import { formatDrivingSummary } from "@/features/recommendations/utils";
 import type { FuelType } from "@/types/fuel";
@@ -129,6 +133,24 @@ function FlyToStation({ items, selectedId }: FlyToStationProps) {
   return null;
 }
 
+// ── Pin-mode click capture ───────────────────────────────────────────────────
+
+interface PinClickHandlerProps {
+  onPick: (lat: number, lon: number) => void;
+}
+
+// Mounted only while pin mode is active, so the click listener exists for
+// exactly as long as it's needed (react-leaflet detaches it on unmount). Clicks
+// on existing markers don't propagate to the map, so they never drop a pin.
+function PinClickHandler({ onPick }: PinClickHandlerProps) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
 // ── Station marker ──────────────────────────────────────────────────────────
 
 interface StationMarkerProps {
@@ -219,6 +241,7 @@ export function MapView({
 }: MapViewProps) {
   const [pendingBounds, setPendingBounds] = useState<LatLngBounds | null>(null);
   const [heatmapMode, setHeatmapMode] = useState(false);
+  const pin = usePinLocationMode();
   const userPos: [number, number] = [userLat, userLon];
 
   const heatmapParams: HeatmapParams | null =
@@ -242,7 +265,14 @@ export function MapView({
   }
 
   return (
-    <div className={cn("relative h-full w-full", className)}>
+    <div
+      className={cn(
+        "relative h-full w-full",
+        // Crosshair cue while placing a pin.
+        pin.isActive && "[&_.leaflet-container]:cursor-crosshair",
+        className,
+      )}
+    >
       <MapContainer
         center={userPos}
         zoom={13}
@@ -259,19 +289,32 @@ export function MapView({
         <FlyToHandler lat={userLat} lon={userLon} />
         <FlyToStation items={items} selectedId={selectedStationId} />
 
-        {/* User position */}
-        <CircleMarker
-          center={userPos}
-          radius={10}
-          pathOptions={{
-            color: "#2563eb",
-            fillColor: "#3b82f6",
-            fillOpacity: 0.85,
-            weight: 2,
-          }}
-        >
-          <Popup>📍 Tu ubicación</Popup>
-        </CircleMarker>
+        {/* Capture clicks as pin placements only while pin mode is on. */}
+        {pin.isActive && <PinClickHandler onPick={pin.placeAt} />}
+
+        {/* User position — the draggable pin replaces the plain dot once the
+            user has manually placed one, so there's never a duplicate marker. */}
+        {pin.pinLocation ? (
+          <UserSelectedMarker
+            position={pin.pinLocation}
+            draggable={pin.isActive}
+            onDrag={pin.handleDrag}
+            onDragEnd={pin.handleDragEnd}
+          />
+        ) : (
+          <CircleMarker
+            center={userPos}
+            radius={10}
+            pathOptions={{
+              color: "#2563eb",
+              fillColor: "#3b82f6",
+              fillOpacity: 0.85,
+              weight: 2,
+            }}
+          >
+            <Popup>📍 Tu ubicación</Popup>
+          </CircleMarker>
+        )}
 
         {/* Either station markers OR the price heatmap — never both, so the
             map stays readable. */}
@@ -291,8 +334,23 @@ export function MapView({
         )}
       </MapContainer>
 
-      {/* "Search this area" overlay */}
-      {pendingBounds && !isLoading && (
+      {/* Pin-mode toggle — tucked under the zoom control on the left. */}
+      <PinLocationControl
+        active={pin.isActive}
+        onToggle={pin.toggle}
+        className="absolute left-3 top-20 z-[500]"
+      />
+
+      {/* Helper banner + live coordinates while placing/dragging the pin. */}
+      {pin.isActive && (
+        <div className="pointer-events-none absolute inset-x-0 top-4 z-[600] flex justify-center px-4">
+          <PinLocationHint coords={pin.displayCoords} />
+        </div>
+      )}
+
+      {/* "Search this area" overlay — hidden in pin mode, where panning to a
+          pinned point shouldn't masquerade as an area search. */}
+      {pendingBounds && !isLoading && !pin.isActive && (
         <div className="pointer-events-none absolute inset-x-0 top-4 z-[500] flex justify-center">
           <button
             type="button"

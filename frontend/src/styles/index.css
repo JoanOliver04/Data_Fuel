@@ -116,3 +116,59 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Pin location marker ──────────────────────────────────────────────────
+   Styling for the draggable "selected location" pin (see UserSelectedMarker).
+   The drop + pulse animations are neutralised by the reduce-motion block above.
+   Animations live on `.df-pin` (inner wrapper), never on the `.leaflet-marker-
+   icon` element Leaflet transforms for positioning. */
+.df-pin {
+  position: relative;
+  width: 30px;
+  height: 40px;
+  transform-origin: bottom center;
+  animation: df-pin-drop 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.35));
+}
+
+.df-pin__pulse {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 9999px;
+  background: rgb(124 58 237 / 0.5);
+  animation: df-pin-pulse 1.8s ease-out infinite;
+}
+
+@keyframes df-pin-drop {
+  0% {
+    transform: translateY(-18px) scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(2px) scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes df-pin-pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
