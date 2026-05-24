@@ -9,10 +9,12 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from app.api.v1.endpoints import metrics as metrics_endpoint
 from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.lifespan import lifespan
 from app.core.logging import setup_logging
+from app.core.metrics import build_info
 from app.core.middleware import RequestLoggingMiddleware
 from app.core.rate_limit import limiter
 
@@ -70,6 +72,11 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix="/api/v1")
+    # Metrics live at the root (/metrics), outside the versioned API prefix.
+    app.include_router(metrics_endpoint.router)
+
+    # Publish static build metadata once per process.
+    build_info.labels(app_name=settings.app_name, version=settings.app_version).set(1)
 
     return app
 

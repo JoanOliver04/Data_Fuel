@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     # DEBUG | INFO | WARNING | ERROR. Use DEBUG locally to see HTTP/SQL detail.
     log_level: str = Field(default="INFO")
 
+    # ─── Observability ────────────────────────────────────
+    # Expose Prometheus metrics at GET /metrics and instrument requests. Kept
+    # as a kill-switch so metrics can be turned off without a code change.
+    metrics_enabled: bool = True
+    # Requests slower than this are logged at WARNING (production debugging aid).
+    slow_request_ms: float = Field(default=1000.0, gt=0.0)
+
     @field_validator("log_level", mode="before")
     @classmethod
     def _normalize_log_level(cls, value: str) -> str:
