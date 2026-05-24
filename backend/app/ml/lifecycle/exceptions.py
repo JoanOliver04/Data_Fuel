@@ -22,3 +22,15 @@ class VersionNotFoundError(ArtifactError):
 
 class InvalidArtifactError(ArtifactError):
     """Raised when an artifact exists but is empty, corrupt, or unloadable."""
+
+
+class ModelRejectedError(RetrainError):
+    """Raised when a freshly trained model fails the acceptance gate.
+
+    Carries the human-readable rejection reason so the caller can log it and
+    persist it to the training-run history without re-deriving it.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
