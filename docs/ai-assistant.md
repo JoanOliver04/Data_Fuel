@@ -48,14 +48,30 @@ Providers **never raise** — transport, timeout, HTTP and parse failures all
 return `LLMResult(ok=False, reason=...)`. Implementations:
 
 - **`FallbackProvider`** (default) — no network; always `ok=False, reason="disabled"`.
-- **`OpenAICompatibleProvider`** — any OpenAI-style `/chat/completions` API
-  (OpenAI, Azure, OpenRouter, Ollama, vLLM). Timeout-bounded (`asyncio.wait_for`),
-  retries transient failures, requests JSON-mode output. The API key is read from
-  settings/env at call time — **never hard-coded**.
+- **`OpenAICompatibleProvider`** — any OpenAI-style `/chat/completions` API.
+  Timeout-bounded (`asyncio.wait_for`), retries transient failures, requests
+  JSON-mode output, omits `Authorization` for keyless providers (local Ollama).
+  The API key is read from settings/env at call time — **never hard-coded**. Its
+  `name` carries the concrete provider id for metrics/health labels.
 
-`get_llm_provider(settings)` selects the provider and degrades to the fallback
-when the LLM is disabled or no key is present. Adding Anthropic later is a new
-class implementing the same Protocol — no orchestration changes.
+The factory holds a **preset registry** mapping each provider id to its base URL,
+default model and key requirement — one transport serves all of them:
+
+| Provider | Base URL | Default model | Key |
+| --- | --- | --- | --- |
+| `openrouter` *(prod default)* | `openrouter.ai/api/v1` | `deepseek/deepseek-chat` | `OPENROUTER_API_KEY` |
+| `groq` | `api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | `GROQ_API_KEY` |
+| `ollama` | `localhost:11434/v1` | `llama3.1` | none |
+| `openai` | `api.openai.com/v1` | `gpt-4o-mini` | `LLM_API_KEY` |
+
+`get_llm_provider(settings)` resolves key (provider-specific → generic
+`LLM_API_KEY`) and model (`LLM_MODEL` override → provider default), and degrades
+to the fallback when the LLM is disabled, the id is unknown/reserved, or a
+required key is missing. `anthropic` is **reserved** (recognised by config,
+degrades to fallback) — wiring it later is a new provider class behind the same
+Protocol, no orchestration changes. Each provider also exposes
+`health_check() → ProviderHealth` (probes `GET /models`), surfaced at
+`GET /api/v1/ai/health` as a diagnostic — it never gates request serving.
 
 ## Explanation flow
 
@@ -105,6 +121,7 @@ provider failures recover on the next request.
 | `/api/v1/ai/explain-prediction` | GET | `AIExplanation` |
 | `/api/v1/ai/trend-summary` | GET | `TrendSummary` |
 | `/api/v1/ai/chat` | POST | `AIExplanation` |
+| `/api/v1/ai/health` | GET | `AIProviderHealth` (diagnostic) |
 
 All are rate-limited (`AI_RATE_LIMIT`). `404` when no stations in range; `422`
 for missing trend area or empty/garbage chat input. `AIExplanation.source`
@@ -115,10 +132,13 @@ for missing trend area or empty/garbage chat input. `AIExplanation.source`
 | Setting | Default | Notes |
 | --- | --- | --- |
 | `AI_ENABLED` | `true` | Master switch; false → always fallback. |
-| `LLM_PROVIDER` | `fallback` | `fallback` or `openai`. |
-| `LLM_API_KEY` | — | Required for `openai`; from env only. |
-| `LLM_BASE_URL` | `https://api.openai.com/v1` | Any OpenAI-compatible base. |
-| `LLM_MODEL` | `gpt-4o-mini` | — |
+| `DATAFUEL_LLM_PROVIDER` | `fallback` | `fallback`/`openrouter`/`groq`/`ollama`/`openai` (alias of `LLM_PROVIDER`). Prod: `openrouter`. |
+| `OPENROUTER_API_KEY` | — | Required for `openrouter`; env only. |
+| `OPENROUTER_MODEL` | `deepseek/deepseek-chat` | OpenRouter model id. |
+| `GROQ_API_KEY` | — | Required for `groq`; env only. |
+| `LLM_API_KEY` | — | Generic/`openai` key; per-provider key wins. |
+| `LLM_BASE_URL` | *(preset)* | Optional override of the provider base URL. |
+| `LLM_MODEL` | *(preset)* | Optional override of the provider model. |
 | `LLM_TIMEOUT_SECONDS` | `8.0` | Hard wall-clock cap per call. |
 | `LLM_MAX_RETRIES` | `1` | Transient-failure retries. |
 | `LLM_MAX_OUTPUT_TOKENS` | `600` | — |
