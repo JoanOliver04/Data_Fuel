@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from app.analytics.endpoints import router as analytics_router
 from app.api.v1.endpoints import (
     ai,
     health,
@@ -20,3 +21,4 @@ api_router.include_router(predictions.router)
 api_router.include_router(smart_advice.router)
 api_router.include_router(vehicle_profiles.router)
 api_router.include_router(ai.router)
+api_router.include_router(analytics_router)
