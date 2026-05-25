@@ -77,3 +77,12 @@ logs/
 .claude/
 .agents/
 skills-lock.json
+
+# Vite PWA dev service-worker output (generated)
+frontend/dev-dist/
+# Stale tsc -b emit of the composite node config (sources are .ts)
+frontend/vite.config.js
+frontend/src/features/pwa/manifest.js
+# TypeScript incremental build info
+frontend/tsconfig.tsbuildinfo
+frontend/*.tsbuildinfo
