@@ -115,6 +115,33 @@ class Settings(BaseSettings):
     # ─── Rate limiting ────────────────────────────────────
     geocoding_rate_limit: str = "10/minute"
     predictions_rate_limit: str = "30/minute"
+    ai_rate_limit: str = "20/minute"
+
+    # ─── AI assistant (LLM) ───────────────────────────────
+    # The conversational layer enriches existing deterministic explanations. It
+    # is fully optional: with the default "fallback" provider (or no API key) it
+    # returns deterministic explanations and makes no network calls, so the app
+    # and its tests never depend on a live LLM.
+    ai_enabled: bool = True
+    # fallback | openai  (openai = any OpenAI-compatible /chat/completions API)
+    llm_provider: str = Field(default="fallback")
+    llm_api_key: str | None = None
+    llm_base_url: str = Field(default="https://api.openai.com/v1")
+    llm_model: str = Field(default="gpt-4o-mini")
+    llm_timeout_seconds: float = Field(default=8.0, gt=0.0)
+    llm_max_retries: int = Field(default=1, ge=0)
+    llm_max_output_tokens: int = Field(default=600, gt=0)
+    # Hard cap on free-text chat input length (prompt-injection / cost guard).
+    llm_max_input_chars: int = Field(default=2000, gt=0)
+    ai_cache_ttl_seconds: float = Field(default=900.0, gt=0.0)
+
+    @field_validator("llm_provider", mode="before")
+    @classmethod
+    def _normalize_llm_provider(cls, value: str) -> str:
+        v = str(value).strip().lower()
+        if v not in {"fallback", "openai"}:
+            raise ValueError("LLM_PROVIDER must be 'fallback' or 'openai'")
+        return v
 
     # ─── CORS ─────────────────────────────────────────────
     # NoDecode skips pydantic-settings' default JSON decoding for list fields,
