@@ -682,7 +682,7 @@ Post-roadmap hardening sweeps: **security** (rate limiting, docs gating, strict 
 - **Auth** — real accounts (JWT + refresh) to replace localStorage favourites and enable price alerts via email.
 - **Model** — XGBoost with more features (fuel category trends, national averages); evaluate with proper time-series CV.
 - **Caching** — promote the in-process `recommendations` cache and the slowapi limiter store to Redis so they survive across multi-instance deploys.
-- **Observability** — extend the existing request-id-tagged structured logs with OpenTelemetry traces, a `/metrics` Prometheus endpoint, and a Grafana dashboard.
+- **Observability** — ✅ structured JSON logs, request/correlation tracing, Prometheus `/metrics`, and liveness/readiness/detail health endpoints are implemented (see [docs/observability.md](docs/observability.md)). Next: OpenTelemetry distributed traces and a shipped Grafana dashboard JSON.
 
 ---
 
