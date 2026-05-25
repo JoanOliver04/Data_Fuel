@@ -29,6 +29,16 @@ class LLMResult:
     provider: str = "fallback"
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderHealth:
+    """Outcome of a provider liveness probe. ``healthy`` is best-effort and never
+    gates request serving — it is a diagnostic, not a readiness signal."""
+
+    provider: str
+    healthy: bool
+    detail: str = ""
+
+
 @runtime_checkable
 class LLMProvider(Protocol):
     """Minimal completion interface every provider implements."""
@@ -37,4 +47,8 @@ class LLMProvider(Protocol):
 
     async def complete(self, system: str, user: str) -> LLMResult:
         """Return a completion for the given system + user messages. Never raises."""
+        ...
+
+    async def health_check(self) -> ProviderHealth:
+        """Best-effort provider liveness probe. Never raises."""
         ...
