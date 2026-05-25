@@ -10,8 +10,10 @@ from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
 
+from app.alerts.models import AlertORM, NotificationORM  # noqa: F401
 from app.core.config import get_settings
 from app.core.scheduler import (
+    add_alert_job,
     add_retrain_job,
     attach_scheduler_metrics,
     create_scheduler,
@@ -86,6 +88,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
             scheduler = AsyncIOScheduler()
         add_retrain_job(scheduler, settings)
+    if settings.alerts_enabled:
+        if scheduler is None:
+            from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+            scheduler = AsyncIOScheduler()
+        add_alert_job(scheduler, settings)
     if scheduler is not None:
         attach_scheduler_metrics(scheduler)
         scheduler.start()

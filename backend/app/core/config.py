@@ -153,6 +153,23 @@ class Settings(BaseSettings):
     analytics_llm_insights: bool = False
     analytics_cache_ttl_seconds: float = Field(default=300.0, gt=0.0)
 
+    # ─── Alerts ───────────────────────────────────────────
+    # Intelligent fuel-alert engine. Evaluated on an interval job by the
+    # scheduler; fully isolated from recommendation/ML internals (consumes their
+    # public outputs only). Failures degrade gracefully and never crash the loop.
+    alerts_enabled: bool = True
+    alerts_eval_interval_seconds: int = Field(default=900, ge=30)
+    # Hard cap on alerts evaluated per batch tick (back-pressure / loop safety).
+    alerts_eval_batch_size: int = Field(default=200, ge=1)
+    # Default per-alert cooldown when the user does not set one (anti-spam).
+    alerts_default_cooldown_minutes: int = Field(default=360, ge=0)
+    # A notification with the same dedup key inside this window is suppressed.
+    alerts_dedup_window_minutes: int = Field(default=1440, ge=1)
+    alerts_max_per_user: int = Field(default=50, ge=1)
+    alerts_rate_limit: str = "30/minute"
+    # Optional LLM rephrase of the deterministic alert message (off by default).
+    alerts_llm_explanations: bool = False
+
     @field_validator("llm_provider", mode="before")
     @classmethod
     def _normalize_llm_provider(cls, value: str) -> str:

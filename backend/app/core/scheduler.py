@@ -134,3 +134,28 @@ def add_retrain_job(
         },
     )
     log.info("Scheduler configured: ML retrain cron=%r (UTC)", settings.retrain_cron)
+
+
+def add_alert_job(scheduler: AsyncIOScheduler, settings: Settings) -> None:
+    """Register the recurring alert-evaluation job on an existing scheduler.
+
+    Imported lazily to keep the alert package out of core's import graph. The job
+    coalesces and runs single-instance, so a slow tick can never pile up.
+    """
+    from app.alerts.services import run_alert_evaluation
+
+    scheduler.add_job(
+        _timed_job("alert_eval", run_alert_evaluation),
+        trigger="interval",
+        seconds=settings.alerts_eval_interval_seconds,
+        id="alert_eval",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300,
+        kwargs={"settings": settings},
+    )
+    log.info(
+        "Scheduler configured: alert evaluation every %ds",
+        settings.alerts_eval_interval_seconds,
+    )
