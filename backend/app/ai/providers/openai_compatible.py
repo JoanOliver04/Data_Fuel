@@ -18,7 +18,7 @@ from typing import Any
 
 import httpx
 
-from app.ai.providers.base import FailureReason, LLMResult
+from app.ai.providers.base import FailureReason, LLMResult, ProviderHealth
 from app.core.metrics import ai_provider_failures_total
 
 log = logging.getLogger("app.ai.provider")
@@ -27,7 +27,12 @@ _RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
 class OpenAICompatibleProvider:
-    name = "openai"
+    """Provider for any OpenAI-style ``/chat/completions`` API.
+
+    One class serves OpenAI, OpenRouter, Groq, Ollama and similar — they differ
+    only in base URL, model and key, which the factory injects. ``name`` carries
+    the concrete provider id (e.g. ``openrouter``) for metrics/health labelling.
+    """
 
     def __init__(
         self,
@@ -38,8 +43,10 @@ class OpenAICompatibleProvider:
         timeout_s: float,
         max_retries: int,
         max_output_tokens: int,
+        name: str = "openai",
         client: httpx.AsyncClient | None = None,
     ) -> None:
+        self.name = name
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._model = model
@@ -47,6 +54,10 @@ class OpenAICompatibleProvider:
         self._max_retries = max_retries
         self._max_output_tokens = max_output_tokens
         self._client = client  # injected (tests) → not closed here
+
+    def _headers(self) -> dict[str, str]:
+        # Keyless providers (e.g. local Ollama) get no Authorization header.
+        return {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
 
     def _fail(self, reason: FailureReason, error: str, latency: float) -> LLMResult:
         ai_provider_failures_total.labels(provider=self.name, reason=reason).inc()
@@ -66,7 +77,7 @@ class OpenAICompatibleProvider:
             "max_tokens": self._max_output_tokens,
             "response_format": {"type": "json_object"},
         }
-        headers = {"Authorization": f"Bearer {self._api_key}"}
+        headers = self._headers()
         start = time.perf_counter()
 
         for attempt in range(self._max_retries + 1):
@@ -113,11 +124,39 @@ class OpenAICompatibleProvider:
             usage = data.get("usage") or {}
         except (KeyError, IndexError, ValueError, TypeError) as exc:
             return self._fail("parse", str(exc), latency)
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
+        log.debug(
+            "LLM ok: provider=%s model=%s tokens=%s/%s latency=%.3fs",
+            self.name, self._model, prompt_tokens, completion_tokens, latency,
+        )
         return LLMResult(
             ok=True,
             text=str(text),
-            prompt_tokens=usage.get("prompt_tokens"),
-            completion_tokens=usage.get("completion_tokens"),
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
             latency_s=latency,
             provider=self.name,
+        )
+
+    async def health_check(self) -> ProviderHealth:
+        """Probe ``GET {base_url}/models`` under the call timeout. Never raises."""
+        url = f"{self._base_url}/models"
+        try:
+            if self._client is not None:
+                response = await asyncio.wait_for(
+                    self._client.get(url, headers=self._headers()), timeout=self._timeout_s
+                )
+            else:
+                async with httpx.AsyncClient(timeout=self._timeout_s) as client:
+                    response = await asyncio.wait_for(
+                        client.get(url, headers=self._headers()), timeout=self._timeout_s
+                    )
+        except (TimeoutError, httpx.TimeoutException):
+            return ProviderHealth(provider=self.name, healthy=False, detail="timeout")
+        except httpx.HTTPError as exc:
+            return ProviderHealth(provider=self.name, healthy=False, detail=str(exc))
+        healthy = response.status_code < 400
+        return ProviderHealth(
+            provider=self.name, healthy=healthy, detail=f"HTTP {response.status_code}"
         )

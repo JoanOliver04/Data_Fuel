@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -15,6 +15,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,  # allow field-name init alongside env aliases
     )
 
     # ─── Application metadata ─────────────────────────────
@@ -123,11 +124,23 @@ class Settings(BaseSettings):
     # returns deterministic explanations and makes no network calls, so the app
     # and its tests never depend on a live LLM.
     ai_enabled: bool = True
-    # fallback | openai  (openai = any OpenAI-compatible /chat/completions API)
-    llm_provider: str = Field(default="fallback")
+    # Provider id: fallback | openrouter | groq | ollama | openai (all real ones
+    # are OpenAI-compatible /chat/completions APIs; "anthropic" is reserved). The
+    # code default stays "fallback" so a keyless checkout makes zero network
+    # calls; production sets DATAFUEL_LLM_PROVIDER=openrouter via env.
+    llm_provider: str = Field(
+        default="fallback",
+        validation_alias=AliasChoices("llm_provider", "datafuel_llm_provider"),
+    )
+    # Generic key + per-provider keys (per-provider wins; see the factory).
     llm_api_key: str | None = None
-    llm_base_url: str = Field(default="https://api.openai.com/v1")
-    llm_model: str = Field(default="gpt-4o-mini")
+    openrouter_api_key: str | None = None
+    groq_api_key: str | None = None
+    # Optional overrides; when unset the factory uses the provider preset.
+    llm_base_url: str | None = None
+    llm_model: str | None = None
+    # Default model for OpenRouter (DeepSeek Chat).
+    openrouter_model: str = Field(default="deepseek/deepseek-chat")
     llm_timeout_seconds: float = Field(default=8.0, gt=0.0)
     llm_max_retries: int = Field(default=1, ge=0)
     llm_max_output_tokens: int = Field(default=600, gt=0)
@@ -144,8 +157,9 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_llm_provider(cls, value: str) -> str:
         v = str(value).strip().lower()
-        if v not in {"fallback", "openai"}:
-            raise ValueError("LLM_PROVIDER must be 'fallback' or 'openai'")
+        allowed = {"fallback", "openrouter", "groq", "ollama", "openai", "anthropic"}
+        if v not in allowed:
+            raise ValueError(f"LLM_PROVIDER must be one of {sorted(allowed)}")
         return v
 
     # ─── CORS ─────────────────────────────────────────────

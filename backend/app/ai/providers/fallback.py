@@ -9,7 +9,7 @@ dependency.
 
 from __future__ import annotations
 
-from app.ai.providers.base import LLMResult
+from app.ai.providers.base import LLMResult, ProviderHealth
 
 
 class FallbackProvider:
@@ -17,3 +17,7 @@ class FallbackProvider:
 
     async def complete(self, system: str, user: str) -> LLMResult:
         return LLMResult(ok=False, reason="disabled", provider="fallback")
+
+    async def health_check(self) -> ProviderHealth:
+        # Always "healthy": deterministic, no network — the app works regardless.
+        return ProviderHealth(provider="fallback", healthy=True, detail="deterministic fallback (no LLM)")

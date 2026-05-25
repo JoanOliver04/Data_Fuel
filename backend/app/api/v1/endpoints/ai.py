@@ -20,6 +20,7 @@ from app.ai.providers import get_llm_provider
 from app.ai.safety import sanitize_question
 from app.ai.schemas import (
     AIExplanation,
+    AIProviderHealth,
     ChatRequest,
     PredictionFact,
     RecommendationFacts,
@@ -295,3 +296,21 @@ async def chat(
     if facts is None:
         raise HTTPException(status_code=404, detail="No stations found in the search area")
     return await explain("chat", facts, get_llm_provider(settings), question=question)
+
+
+@router.get(
+    "/health",
+    response_model=AIProviderHealth,
+    summary="LLM provider liveness (diagnostic — does not gate serving)",
+)
+@limiter.limit(lambda: get_settings().ai_rate_limit)
+async def ai_provider_health(request: Request) -> AIProviderHealth:
+    settings = get_settings()
+    provider = get_llm_provider(settings)
+    health = await provider.health_check()
+    return AIProviderHealth(
+        configured_provider=settings.llm_provider,
+        active_provider=health.provider,
+        healthy=health.healthy,
+        detail=health.detail,
+    )
