@@ -97,6 +97,16 @@ class TrendSummary(BaseModel):
     cached: bool = False
 
 
+class AIProviderHealth(BaseModel):
+    """Diagnostic LLM-provider status. ``healthy`` never gates serving — when the
+    provider is down the app still answers via the deterministic fallback."""
+
+    configured_provider: str
+    active_provider: str
+    healthy: bool
+    detail: str = ""
+
+
 # ── Requests ────────────────────────────────────────────────────────────────────
 
 
