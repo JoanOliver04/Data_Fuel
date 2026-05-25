@@ -134,6 +134,11 @@ class Settings(BaseSettings):
     # Hard cap on free-text chat input length (prompt-injection / cost guard).
     llm_max_input_chars: int = Field(default=2000, gt=0)
     ai_cache_ttl_seconds: float = Field(default=900.0, gt=0.0)
+    # Analytics insights are deterministic by default. Flip this on (with an LLM
+    # provider configured) to rephrase them via the LLM; failures silently keep
+    # the deterministic text — analytics never depends on LLM availability.
+    analytics_llm_insights: bool = False
+    analytics_cache_ttl_seconds: float = Field(default=300.0, gt=0.0)
 
     @field_validator("llm_provider", mode="before")
     @classmethod
