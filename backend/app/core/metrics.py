@@ -290,6 +290,33 @@ scheduler_job_duration_seconds = Histogram(
 )
 
 
+# ── Alerts ──────────────────────────────────────────────────────────────────────
+alert_evaluations_total = Counter(
+    "datafuel_alert_evaluations_total",
+    "Alert evaluations by type and result "
+    "(triggered, no_trigger, error, cooldown_suppressed, dedup_suppressed).",
+    ["alert_type", "result"],
+    registry=REGISTRY,
+)
+alert_batch_duration_seconds = Histogram(
+    "datafuel_alert_batch_duration_seconds",
+    "Wall-clock duration of one alert-evaluation batch tick.",
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
+    registry=REGISTRY,
+)
+alert_notifications_total = Counter(
+    "datafuel_alert_notifications_total",
+    "Notifications dispatched by channel and result (sent, failed).",
+    ["channel", "result"],
+    registry=REGISTRY,
+)
+alert_ai_explanation_failures_total = Counter(
+    "datafuel_alert_ai_explanation_failures_total",
+    "Times the optional LLM alert-explanation enrichment failed and fell back.",
+    registry=REGISTRY,
+)
+
+
 def route_template(request: Request) -> str:
     """Return the matched route template (low cardinality) or ``"unmatched"``.
 
