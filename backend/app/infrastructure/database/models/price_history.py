@@ -39,9 +39,17 @@ class PriceHistoryORM(Base):
     station: Mapped["StationORM"] = relationship(back_populates="price_history")
 
     __table_args__ = (
+        # Per-station lookups (current price, station history).
         Index(
             "ix_price_history_station_fuel_time",
             "station_id",
+            "fuel_type",
+            "recorded_at",
+        ),
+        # Analytics trend/comarca/brand scans filter by fuel_type + time window
+        # without a station_id, so they need fuel_type as the leading column.
+        Index(
+            "ix_price_history_fuel_time",
             "fuel_type",
             "recorded_at",
         ),
