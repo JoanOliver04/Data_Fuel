@@ -36,6 +36,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.cache import recommendations_cache
 from app.core.config import Settings, get_settings
+from app.core.metrics import (
+    ml_model_activation_failures_total,
+    ml_retrain_dataset_rows,
+    ml_retrain_duration_seconds,
+    ml_retrain_total,
+)
 from app.infrastructure.database.session import get_session_factory
 from app.ml.inference.model_loader import reload_modelo
 from app.ml.lifecycle.evaluation import AcceptanceThresholds, evaluate_candidate
@@ -126,6 +132,7 @@ class RetrainPipeline:
                 csv_path = Path(tmp) / "datos.csv"
                 await self._export_fn(csv_path)
                 dataset_rows = count_data_rows(csv_path)
+                ml_retrain_dataset_rows.set(dataset_rows)
                 log.info("Dataset exported: rows=%d", dataset_rows)
 
                 self._store.prepare_version_dir(version)
@@ -168,6 +175,7 @@ class RetrainPipeline:
             log.info("Activated model: version=%s previous=%s", version, previous_version)
 
             if not self._reload_fn():
+                ml_model_activation_failures_total.inc()
                 if previous_version is not None:
                     self._store.activate(previous_version)
                     self._reload_fn()
@@ -219,6 +227,8 @@ class RetrainPipeline:
         started: datetime,
     ) -> RetrainOutcome:
         duration = (self._clock() - started).total_seconds()
+        ml_retrain_total.labels(status=status.value).inc()
+        ml_retrain_duration_seconds.observe(duration)
         return RetrainOutcome(
             status=status,
             version=version,

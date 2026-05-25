@@ -27,12 +27,14 @@ station in the user's comarca is therefore not known here.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date, timedelta
 from typing import Any
 
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.metrics import ml_inference_duration_seconds, ml_inference_total
 from app.domain.entities.fuel_type import FuelType
 from app.ml.data.fuel_type_mapping import FUEL_TYPE_TO_ID
 from app.ml.data.holidays import is_festivo
@@ -45,6 +47,8 @@ from app.services.historical_features_service import (
 )
 
 log = logging.getLogger(__name__)
+
+_RF_MODEL_LABEL = "recommendation_rf"
 
 _ALZIRA: tuple[float, float] = (39.1496, -0.4373)
 _TREND_WINDOW_DAYS: int = 30
@@ -153,7 +157,17 @@ async def generar_recomendacion(
         dtype=float,
     )
 
-    precio_predicho = float(model.predict(features)[0])
+    _inference_start = time.perf_counter()
+    try:
+        precio_predicho = float(model.predict(features)[0])
+    except Exception:
+        ml_inference_total.labels(model=_RF_MODEL_LABEL, result="error").inc()
+        raise
+    finally:
+        ml_inference_duration_seconds.labels(model=_RF_MODEL_LABEL).observe(
+            time.perf_counter() - _inference_start
+        )
+    ml_inference_total.labels(model=_RF_MODEL_LABEL, result="success").inc()
     variacion_pct = round((precio_predicho - precio_actual) / precio_actual * 100, 2)
 
     if precio_predicho > precio_actual:

@@ -16,6 +16,7 @@ from typing import Self
 import httpx
 
 from app.core.config import get_settings
+from app.core.metrics import external_request_duration_seconds, external_requests_total
 
 log = logging.getLogger(__name__)
 
@@ -138,6 +139,8 @@ class ORSClient:
             response.raise_for_status()
         except httpx.HTTPError as exc:
             elapsed_ms = (time.perf_counter() - start) * 1000
+            external_request_duration_seconds.labels(provider="ors").observe(elapsed_ms / 1000)
+            external_requests_total.labels(provider="ors", outcome="error").inc()
             log.error(
                 "ORS POST %s failed after %.1fms (%d destinations): %s",
                 self._MATRIX_PATH,
@@ -148,6 +151,8 @@ class ORSClient:
             raise ORSClientError(f"ORS request failed: {exc}") from exc
 
         elapsed_ms = (time.perf_counter() - start) * 1000
+        external_request_duration_seconds.labels(provider="ors").observe(elapsed_ms / 1000)
+        external_requests_total.labels(provider="ors", outcome="success").inc()
         log.debug(
             "ORS POST %s → %d (%.1fms, %d destinations)",
             self._MATRIX_PATH,

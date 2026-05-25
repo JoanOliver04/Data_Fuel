@@ -21,15 +21,42 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
 import joblib
 
+from app.core.metrics import (
+    ml_model_info,
+    ml_model_loaded,
+    ml_model_loaded_timestamp_seconds,
+    ml_model_mae,
+    ml_model_r2,
+    ml_model_reloads_total,
+)
 from app.ml.lifecycle.exceptions import InvalidArtifactError
 from app.ml.lifecycle.versioning import ArtifactStore
 
 log = logging.getLogger(__name__)
+
+
+def _publish_model_metrics(artifact: dict[str, Any]) -> None:
+    """Reflect the freshly loaded artifact into the model gauges."""
+    ml_model_loaded.set(1)
+    ml_model_loaded_timestamp_seconds.set(time.time())
+    ml_model_info.info(
+        {
+            "version": str(artifact.get("version", "unknown")),
+            "trained_at": str(artifact.get("trained_at", "")),
+        }
+    )
+    mae = artifact.get("mae")
+    r2 = artifact.get("r2")
+    if isinstance(mae, (int, float)):
+        ml_model_mae.set(float(mae))
+    if isinstance(r2, (int, float)):
+        ml_model_r2.set(float(r2))
 
 _lock = threading.Lock()
 _modelo: dict[str, Any] | None = None
@@ -76,6 +103,7 @@ def load_modelo(path: Path | None = None) -> None:
             "ML model not found (resolved=%s) — /predictions/recommendation will 503",
             resolved,
         )
+        ml_model_loaded.set(0)
         return
     try:
         with _lock:
@@ -83,8 +111,10 @@ def load_modelo(path: Path | None = None) -> None:
             _modelo = artifact
     except Exception:
         log.exception("Failed to load ML model from %s — leaving model unset", resolved)
+        ml_model_loaded.set(0)
         return
     _log_loaded(resolved, artifact, action="loaded")
+    _publish_model_metrics(artifact)
 
 
 def reload_modelo(path: Path | None = None) -> bool:
@@ -98,6 +128,7 @@ def reload_modelo(path: Path | None = None) -> bool:
     resolved = _resolve_path(path)
     if resolved is None or not resolved.exists():
         log.error("Reload skipped: no artifact resolved (%s) — keeping current model", resolved)
+        ml_model_reloads_total.labels(result="failure").inc()
         return False
     try:
         with _lock:
@@ -105,8 +136,11 @@ def reload_modelo(path: Path | None = None) -> bool:
             _modelo = artifact
     except Exception:
         log.exception("Reload failed for %s — keeping current model", resolved)
+        ml_model_reloads_total.labels(result="failure").inc()
         return False
     _log_loaded(resolved, artifact, action="hot-reloaded")
+    _publish_model_metrics(artifact)
+    ml_model_reloads_total.labels(result="success").inc()
     return True
 
 

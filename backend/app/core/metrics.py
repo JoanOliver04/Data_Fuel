@@ -25,6 +25,7 @@ from prometheus_client import (
     Counter,
     Gauge,
     Histogram,
+    Info,
     generate_latest,
 )
 from starlette.requests import Request
@@ -67,6 +68,149 @@ http_exceptions_total = Counter(
     "datafuel_http_exceptions_total",
     "Unhandled exceptions escaping request handling, by method and route.",
     ["method", "route"],
+    registry=REGISTRY,
+)
+
+
+# ── Cache ─────────────────────────────────────────────────────────────────────
+cache_operations_total = Counter(
+    "datafuel_cache_operations_total",
+    "In-process cache operations by cache name and result "
+    "(hit, miss, set, expiration, invalidation).",
+    ["cache", "result"],
+    registry=REGISTRY,
+)
+cache_size = Gauge(
+    "datafuel_cache_entries",
+    "Current number of live entries per in-process cache.",
+    ["cache"],
+    registry=REGISTRY,
+)
+
+
+# ── Machine learning ──────────────────────────────────────────────────────────
+ml_model_info = Info(
+    "datafuel_ml_model",
+    "Active recommendation model metadata (version, trained_at). One series; "
+    "updated in place on (re)load so version labels never accumulate.",
+    registry=REGISTRY,
+)
+ml_model_loaded = Gauge(
+    "datafuel_ml_model_loaded",
+    "1 when the recommendation model artifact is loaded, else 0.",
+    registry=REGISTRY,
+)
+ml_model_mae = Gauge(
+    "datafuel_ml_model_mae", "MAE of the active recommendation model.", registry=REGISTRY
+)
+ml_model_r2 = Gauge(
+    "datafuel_ml_model_r2", "R² of the active recommendation model.", registry=REGISTRY
+)
+ml_model_loaded_timestamp_seconds = Gauge(
+    "datafuel_ml_model_loaded_timestamp_seconds",
+    "Unix time of the last successful model (re)load; for computing model age.",
+    registry=REGISTRY,
+)
+ml_model_reloads_total = Counter(
+    "datafuel_ml_model_reloads_total",
+    "Hot-reload attempts by result (success, failure).",
+    ["result"],
+    registry=REGISTRY,
+)
+ml_inference_total = Counter(
+    "datafuel_ml_inference_total",
+    "Model inference calls by model and result (success, error).",
+    ["model", "result"],
+    registry=REGISTRY,
+)
+ml_inference_duration_seconds = Histogram(
+    "datafuel_ml_inference_duration_seconds",
+    "Model inference latency in seconds by model.",
+    ["model"],
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+    registry=REGISTRY,
+)
+ml_retrain_total = Counter(
+    "datafuel_ml_retrain_total",
+    "Retraining attempts by terminal status (activated, rejected, failed).",
+    ["status"],
+    registry=REGISTRY,
+)
+ml_retrain_duration_seconds = Histogram(
+    "datafuel_ml_retrain_duration_seconds",
+    "End-to-end retraining duration in seconds.",
+    buckets=(1.0, 5.0, 15.0, 30.0, 60.0, 300.0, 900.0, 1800.0, 3600.0),
+    registry=REGISTRY,
+)
+ml_retrain_dataset_rows = Gauge(
+    "datafuel_ml_retrain_dataset_rows",
+    "Row count of the dataset used by the most recent retraining attempt.",
+    registry=REGISTRY,
+)
+ml_model_activation_failures_total = Counter(
+    "datafuel_ml_model_activation_failures_total",
+    "Times a freshly activated model failed to hot-reload and was rolled back.",
+    registry=REGISTRY,
+)
+
+
+# ── External providers ────────────────────────────────────────────────────────
+external_requests_total = Counter(
+    "datafuel_external_requests_total",
+    "Outbound requests to external providers by provider (miteco, ors, tomtom) "
+    "and outcome (success, error).",
+    ["provider", "outcome"],
+    registry=REGISTRY,
+)
+external_request_duration_seconds = Histogram(
+    "datafuel_external_request_duration_seconds",
+    "Latency of outbound external-provider requests in seconds by provider.",
+    ["provider"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
+    registry=REGISTRY,
+)
+external_retries_total = Counter(
+    "datafuel_external_retries_total",
+    "Retry attempts against external providers by provider.",
+    ["provider"],
+    registry=REGISTRY,
+)
+external_timeouts_total = Counter(
+    "datafuel_external_timeouts_total",
+    "Timed-out requests to external providers by provider.",
+    ["provider"],
+    registry=REGISTRY,
+)
+routing_fallbacks_total = Counter(
+    "datafuel_routing_fallbacks_total",
+    "Times a routing provider fell back to haversine, by provider.",
+    ["provider"],
+    registry=REGISTRY,
+)
+tomtom_quota_used = Gauge(
+    "datafuel_tomtom_quota_used",
+    "TomTom routing requests consumed in the current UTC day.",
+    registry=REGISTRY,
+)
+tomtom_quota_limit = Gauge(
+    "datafuel_tomtom_quota_limit",
+    "Configured TomTom daily routing request limit.",
+    registry=REGISTRY,
+)
+
+
+# ── Scheduler ─────────────────────────────────────────────────────────────────
+scheduler_job_runs_total = Counter(
+    "datafuel_scheduler_job_runs_total",
+    "APScheduler job runs by job id and outcome (executed, error, missed).",
+    ["job", "outcome"],
+    registry=REGISTRY,
+)
+scheduler_job_duration_seconds = Histogram(
+    "datafuel_scheduler_job_duration_seconds",
+    "APScheduler job execution time in seconds by job id.",
+    ["job"],
+    buckets=(0.1, 0.5, 1.0, 5.0, 30.0, 60.0, 300.0, 1800.0, 3600.0),
     registry=REGISTRY,
 )
 
