@@ -62,6 +62,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         cid = incoming or rid
         rid_token = request_id_ctx.set(rid)
         cid_token = correlation_id_ctx.set(cid)
+        # Stash on request.state too: the context vars are reset in `finally`
+        # before the outer exception handler runs, but request.state survives.
+        request.state.request_id = rid
+        request.state.correlation_id = cid
         start = time.perf_counter()
 
         method = request.method

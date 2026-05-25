@@ -13,6 +13,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.api.v1.endpoints import metrics as metrics_endpoint
 from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
+from app.core.errors import unhandled_exception_handler
 from app.core.lifespan import lifespan
 from app.core.logging import setup_logging
 from app.core.metrics import build_info
@@ -64,6 +65,8 @@ def create_app() -> FastAPI:
     # Rate limiter: slowapi reads ``app.state.limiter`` from the request context.
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    # Sanitised 500s correlated to request/correlation ids (see core/errors.py).
+    app.add_exception_handler(Exception, unhandled_exception_handler)
     app.add_middleware(SlowAPIMiddleware)
 
     # Compress JSON responses ≥1 KB. Recommendations/predictions payloads
