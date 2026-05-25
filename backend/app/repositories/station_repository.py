@@ -5,11 +5,11 @@ from collections.abc import Sequence
 from typing import Any, cast
 
 from sqlalchemy import CursorResult, func, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.domain.entities.fuel_type import FuelType
+from app.infrastructure.database.dialects import build_upsert
 from app.infrastructure.database.models.station import StationORM
 
 # Safe chunk size for SQLite's 999-parameter limit: 999 // 16 cols ≈ 62.
@@ -46,10 +46,8 @@ class StationRepository:
         total = 0
         for i in range(0, len(rows), _CHUNK):
             chunk = rows[i : i + _CHUNK]
-            stmt = sqlite_insert(StationORM).values(chunk)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["id"],
-                set_={k: getattr(stmt.excluded, k) for k in update_cols},
+            stmt = build_upsert(
+                StationORM, chunk, index_elements=["id"], update_keys=update_cols
             )
             result = cast(CursorResult[Any], await self._session.execute(stmt))
             total += result.rowcount
