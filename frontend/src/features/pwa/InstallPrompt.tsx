@@ -1,6 +1,8 @@
 import { ArrowRight, Download, X } from "lucide-react";
+import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
+import { trackPWA } from "@/features/pwa/telemetry";
 import { useInstallPrompt } from "@/features/pwa/usePWA";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +13,22 @@ interface InstallPromptProps {
 export function InstallPrompt({ className }: InstallPromptProps) {
   const { canInstall, promptInstall, dismiss } = useInstallPrompt();
 
+  useEffect(() => {
+    if (canInstall) trackPWA("install_prompt_shown");
+  }, [canInstall]);
+
   if (!canInstall) return null;
+
+  const onInstall = () => {
+    void promptInstall().then((outcome) => {
+      trackPWA(outcome === "accepted" ? "install_accepted" : "install_dismissed", { outcome });
+    });
+  };
+
+  const onDismiss = () => {
+    trackPWA("install_dismissed", { outcome: "dismissed_banner" });
+    dismiss();
+  };
 
   return (
     <div
@@ -36,20 +53,14 @@ export function InstallPrompt({ className }: InstallPromptProps) {
         <p className="text-sm font-semibold leading-tight">Instala Data Fuel</p>
         <p className="text-xs text-muted-foreground">Acceso rápido y uso offline.</p>
       </div>
-      <Button
-        size="sm"
-        onClick={() => {
-          void promptInstall();
-        }}
-        className="h-8 gap-1 px-3 text-xs"
-      >
+      <Button size="sm" onClick={onInstall} className="h-8 gap-1 px-3 text-xs">
         Instalar
         <ArrowRight className="h-3.5 w-3.5" />
       </Button>
       <Button
         variant="ghost"
         size="icon"
-        onClick={dismiss}
+        onClick={onDismiss}
         aria-label="Descartar invitación de instalación"
         className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground hover:text-foreground"
       >
