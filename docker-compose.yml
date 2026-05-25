@@ -76,11 +76,40 @@ services:
     networks:
       - datafuel
 
+  # Optional PostgreSQL for a production-like stack. Off by default (the backend
+  # uses SQLite). Enable with the profile and point the backend at it:
+  #   docker compose --profile postgres up -d db
+  #   docker compose run -e DATABASE_URL=postgresql+asyncpg://datafuel:datafuel@db:5432/datafuel backend
+  # or set DATABASE_URL in the backend service for a full Postgres deployment.
+  db:
+    image: postgres:16-alpine
+    container_name: datafuel-db
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: datafuel
+      POSTGRES_PASSWORD: datafuel
+      POSTGRES_DB: datafuel
+    volumes:
+      - datafuel-pg:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U datafuel -d datafuel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - datafuel
+
 volumes:
   datafuel-db:
     name: datafuel-db
   datafuel-artifacts:
     name: datafuel-artifacts
+  datafuel-pg:
+    name: datafuel-pg
 
 networks:
   datafuel:

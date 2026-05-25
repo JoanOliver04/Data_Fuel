@@ -43,7 +43,41 @@ class Settings(BaseSettings):
         return v
 
     # ─── Database ─────────────────────────────────────────
+    # SQLite (default, dev/CI) or PostgreSQL (production). Both async drivers:
+    #   sqlite+aiosqlite:///./datafuel.db
+    #   postgresql+asyncpg://user:pass@host:5432/datafuel
     database_url: str = Field(default="sqlite+aiosqlite:///./datafuel.db")
+    # PostgreSQL connection-pool tuning (ignored for SQLite). Production-safe
+    # defaults sized for a single app instance; raise pool_size for more workers.
+    db_pool_size: int = Field(default=5, ge=1)
+    db_max_overflow: int = Field(default=10, ge=0)
+    db_pool_recycle_seconds: int = Field(default=1800, ge=1)
+    db_pool_timeout_seconds: float = Field(default=30.0, gt=0.0)
+    db_connect_timeout_seconds: float = Field(default=10.0, gt=0.0)
+    # Server-side statement timeout (ms) applied per asyncpg connection; 0 = off.
+    db_statement_timeout_ms: int = Field(default=30000, ge=0)
+    # Queries slower than this are counted + logged (production debugging aid).
+    db_slow_query_ms: float = Field(default=500.0, gt=0.0)
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, value: str) -> str:
+        """Accept SQLite/Postgres async URLs; upgrade bare postgres schemes that
+        managed hosts (Railway/Render/Heroku) hand out to the asyncpg driver."""
+        v = str(value).strip()
+        if v.startswith("postgres://"):
+            v = "postgresql+asyncpg://" + v[len("postgres://") :]
+        elif v.startswith("postgresql://"):
+            v = "postgresql+asyncpg://" + v[len("postgresql://") :]
+        if not (v.startswith("sqlite+aiosqlite:") or v.startswith("postgresql+asyncpg:")):
+            raise ValueError(
+                "DATABASE_URL must use sqlite+aiosqlite or postgresql+asyncpg (async drivers)"
+            )
+        return v
+
+    @property
+    def is_postgres(self) -> bool:
+        return self.database_url.startswith("postgresql")
 
     # ─── MITECO API ───────────────────────────────────────
     miteco_base_url: str = Field(

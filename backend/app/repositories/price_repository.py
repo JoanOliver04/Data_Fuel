@@ -3,8 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy import CursorResult, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.fuel_type import FuelType
@@ -28,7 +27,7 @@ class PriceRepository:
             result = cast(
                 CursorResult[Any],
                 await self._session.execute(
-                    sqlite_insert(PriceHistoryORM).values(rows[i : i + _CHUNK])
+                    insert(PriceHistoryORM).values(rows[i : i + _CHUNK])
                 ),
             )
             total += result.rowcount

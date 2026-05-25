@@ -18,6 +18,7 @@ from sqlalchemy import Numeric, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
+from app.infrastructure.database.dialects import Granularity, time_bucket
 from app.infrastructure.database.models.price_history import PriceHistoryORM
 from app.infrastructure.database.models.station import StationORM
 
@@ -105,9 +106,9 @@ class AnalyticsRepository:
         return averages
 
     async def trend_rows(
-        self, fuel: str, start: datetime, end: datetime, bucket_fmt: str
+        self, fuel: str, start: datetime, end: datetime, granularity: Granularity
     ) -> list[TrendRow]:
-        bucket = func.strftime(bucket_fmt, PriceHistoryORM.recorded_at).label("bucket")
+        bucket = time_bucket(PriceHistoryORM.recorded_at, granularity).label("bucket")
         stmt = (
             select(
                 bucket,
@@ -128,9 +129,9 @@ class AnalyticsRepository:
         return [TrendRow(str(r[0]), _f(r[1]), _f(r[2]), _f(r[3]), int(r[4])) for r in rows]
 
     async def trend_rows_by_brand(
-        self, fuel: str, start: datetime, end: datetime, bucket_fmt: str, brands: list[str]
+        self, fuel: str, start: datetime, end: datetime, granularity: Granularity, brands: list[str]
     ) -> list[LabeledTrendRow]:
-        bucket = func.strftime(bucket_fmt, PriceHistoryORM.recorded_at).label("bucket")
+        bucket = time_bucket(PriceHistoryORM.recorded_at, granularity).label("bucket")
         stmt = (
             select(
                 StationORM.brand,
@@ -157,9 +158,9 @@ class AnalyticsRepository:
         ]
 
     async def trend_rows_by_municipality(
-        self, fuel: str, start: datetime, end: datetime, bucket_fmt: str
+        self, fuel: str, start: datetime, end: datetime, granularity: Granularity
     ) -> list[LabeledTrendRow]:
-        bucket = func.strftime(bucket_fmt, PriceHistoryORM.recorded_at).label("bucket")
+        bucket = time_bucket(PriceHistoryORM.recorded_at, granularity).label("bucket")
         stmt = (
             select(
                 StationORM.municipality,

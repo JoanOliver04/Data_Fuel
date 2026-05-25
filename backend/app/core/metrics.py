@@ -317,6 +317,20 @@ alert_ai_explanation_failures_total = Counter(
 )
 
 
+# ── Database ────────────────────────────────────────────────────────────────────
+db_query_duration_seconds = Histogram(
+    "datafuel_db_query_duration_seconds",
+    "SQL query execution latency in seconds (all statements).",
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+    registry=REGISTRY,
+)
+db_slow_queries_total = Counter(
+    "datafuel_db_slow_queries_total",
+    "Queries exceeding the slow-query threshold (DB_SLOW_QUERY_MS).",
+    registry=REGISTRY,
+)
+
+
 def route_template(request: Request) -> str:
     """Return the matched route template (low cardinality) or ``"unmatched"``.
 

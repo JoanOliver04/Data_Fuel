@@ -38,6 +38,7 @@ from app.analytics.schemas import (
     TrendsOut,
 )
 from app.core.metrics import analytics_heavy_queries_total
+from app.infrastructure.database.dialects import Granularity
 
 log = logging.getLogger("app.analytics")
 
@@ -61,8 +62,8 @@ def _window(rng: TimeRange) -> tuple[datetime, datetime, datetime]:
     return start, end, start - delta
 
 
-def _bucket_fmt(rng: TimeRange) -> str:
-    return "%Y-%m-%dT%H" if rng == "24h" else "%Y-%m-%d"
+def _bucket_granularity(rng: TimeRange) -> Granularity:
+    return "hour" if rng == "24h" else "day"
 
 
 def _direction(delta_pct: float | None) -> Direction:
@@ -157,9 +158,9 @@ async def get_trends(
 ) -> TrendsOut:
     repo = AnalyticsRepository(session)
     start, end, _ = _window(rng)
-    fmt = _bucket_fmt(rng)
+    granularity = _bucket_granularity(rng)
 
-    base_rows = await repo.trend_rows(fuel, start, end, fmt)
+    base_rows = await repo.trend_rows(fuel, start, end, granularity)
     base_points = [
         TrendPoint(bucket=r.bucket, avg_price=round(r.avg, 3), min_price=round(r.min, 3),
                    max_price=round(r.max, 3), sample_count=r.count)
@@ -170,10 +171,12 @@ async def get_trends(
     if group_by == "brand":
         ranked = await repo.brand_window_stats(fuel, start, end)
         top = sorted(ranked, key=lambda g: g.sample_count, reverse=True)[:_MAX_GROUPED_SERIES]
-        labeled = await repo.trend_rows_by_brand(fuel, start, end, fmt, [g.key for g in top])
+        labeled = await repo.trend_rows_by_brand(
+            fuel, start, end, granularity, [g.key for g in top]
+        )
         series = _group_series(labeled)
     elif group_by == "comarca":
-        labeled = await repo.trend_rows_by_municipality(fuel, start, end, fmt)
+        labeled = await repo.trend_rows_by_municipality(fuel, start, end, granularity)
         series = _comarca_series(labeled)
     else:
         series = [TrendSeries(label="all", points=base_points)]
