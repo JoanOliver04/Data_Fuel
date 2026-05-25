@@ -246,6 +246,34 @@ ai_tokens_total = Counter(
 )
 
 
+# ── Analytics ─────────────────────────────────────────────────────────────────
+analytics_requests_total = Counter(
+    "datafuel_analytics_requests_total",
+    "Analytics endpoint requests by endpoint and result (ok, cached, error).",
+    ["endpoint", "result"],
+    registry=REGISTRY,
+)
+analytics_query_duration_seconds = Histogram(
+    "datafuel_analytics_query_duration_seconds",
+    "Analytics aggregation/query latency in seconds by endpoint.",
+    ["endpoint"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+    registry=REGISTRY,
+)
+analytics_cache_operations_total = Counter(
+    "datafuel_analytics_cache_operations_total",
+    "Analytics cache operations by result (hit, miss).",
+    ["result"],
+    registry=REGISTRY,
+)
+analytics_heavy_queries_total = Counter(
+    "datafuel_analytics_heavy_queries_total",
+    "Analytics queries that scanned more rows than the soft threshold, by endpoint.",
+    ["endpoint"],
+    registry=REGISTRY,
+)
+
+
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 scheduler_job_runs_total = Counter(
     "datafuel_scheduler_job_runs_total",
