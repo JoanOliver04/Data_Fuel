@@ -199,6 +199,53 @@ tomtom_quota_limit = Gauge(
 )
 
 
+# ── AI assistant (LLM) ────────────────────────────────────────────────────────
+ai_requests_total = Counter(
+    "datafuel_ai_requests_total",
+    "AI explanation requests by kind (recommendation, prediction, trend, chat) "
+    "and result (llm, fallback, cached).",
+    ["kind", "result"],
+    registry=REGISTRY,
+)
+ai_generation_duration_seconds = Histogram(
+    "datafuel_ai_generation_duration_seconds",
+    "LLM generation latency in seconds by kind.",
+    ["kind"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 8.0, 15.0),
+    registry=REGISTRY,
+)
+ai_provider_failures_total = Counter(
+    "datafuel_ai_provider_failures_total",
+    "LLM provider failures by provider and reason (timeout, http, transport, parse).",
+    ["provider", "reason"],
+    registry=REGISTRY,
+)
+ai_cache_operations_total = Counter(
+    "datafuel_ai_cache_operations_total",
+    "AI explanation cache operations by result (hit, miss).",
+    ["result"],
+    registry=REGISTRY,
+)
+ai_fallbacks_total = Counter(
+    "datafuel_ai_fallbacks_total",
+    "Times the deterministic fallback explanation was used, by kind.",
+    ["kind"],
+    registry=REGISTRY,
+)
+ai_hallucination_rejections_total = Counter(
+    "datafuel_ai_hallucination_rejections_total",
+    "LLM outputs rejected by the safety/validation layer, by reason.",
+    ["reason"],
+    registry=REGISTRY,
+)
+ai_tokens_total = Counter(
+    "datafuel_ai_tokens_total",
+    "LLM tokens consumed by kind and type (prompt, completion), when reported.",
+    ["kind", "type"],
+    registry=REGISTRY,
+)
+
+
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 scheduler_job_runs_total = Counter(
     "datafuel_scheduler_job_runs_total",

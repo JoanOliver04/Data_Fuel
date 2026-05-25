@@ -683,6 +683,7 @@ Post-roadmap hardening sweeps: **security** (rate limiting, docs gating, strict 
 - **Model** — XGBoost with more features (fuel category trends, national averages); evaluate with proper time-series CV.
 - **Caching** — promote the in-process `recommendations` cache and the slowapi limiter store to Redis so they survive across multi-instance deploys.
 - **Observability** — ✅ structured JSON logs, request/correlation tracing, Prometheus `/metrics`, and liveness/readiness/detail health endpoints are implemented (see [docs/observability.md](docs/observability.md)). Next: OpenTelemetry distributed traces and a shipped Grafana dashboard JSON.
+- **AI assistant** — ✅ conversational explanations of recommendations, predictions and trends via an isolated LLM layer (provider abstraction, anti-hallucination prompts, deterministic fallback, caching) at `/api/v1/ai/*` (see [docs/ai-assistant.md](docs/ai-assistant.md)). Next: the frontend AI UX (explanation cards, chat, trend panel) and streaming responses.
 
 ---
 
