@@ -5,7 +5,12 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "strict": true
+    "strict": true,
+    // Composite forces emit; redirect it into node_modules (git-ignored) so
+    // `tsc -b` never writes vite.config.js / manifest.js beside the .ts sources.
+    // Those .js twins shadow the .ts at resolve time and silently break edits.
+    "outDir": "./node_modules/.tmp/tsnode",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsnode/.tsbuildinfo"
   },
   "include": ["vite.config.ts", "src/features/pwa/manifest.ts"]
 }

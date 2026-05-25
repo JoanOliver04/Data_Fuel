@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
+import { registerPWA } from "./features/pwa/registerPWA";
 import { createLogger } from "./lib/logger";
 import "./styles/index.css";
 
@@ -35,3 +36,6 @@ createRoot(rootElement).render(
     <App />
   </StrictMode>,
 );
+
+// Register the service worker after the app mounts; never blocks or throws.
+registerPWA();
