@@ -78,15 +78,18 @@ FEATURE_COLUMNS: list[str] = [
     "comarca_enc",
 ]
 
-# Hyperparameters tuned via a one-off search on the v1.0 17-column dataset:
-# more estimators improve stability, max_depth=30 caps memory growth on the
-# full-history corpus, min_samples_leaf=3 reduces leaf-level overfit, and
-# max_features="sqrt" introduces per-tree feature subsampling for ensemble
+# Hyperparameters re-tuned on the full 1.5M-row corpus. The previous
+# (max_depth=30, min_samples_leaf=3) forest grew to ~436k nodes/tree → an 8.8 GB
+# artifact that took ~78 s to load and ~4.3 s PER prediction, and it overfit:
+# memorizing per-(station,day) levels rather than forecasting forward. Shallower
+# trees with larger leaves both shrink the model ~166x (8.8 GB → ~55 MB) and
+# IMPROVE honest time-split holdout accuracy (R² 0.827 → 0.861, MAE 0.049 →
+# 0.042). max_features="sqrt" keeps per-tree feature subsampling for ensemble
 # diversity. n_jobs=6 leaves headroom on standard 8-12 core dev machines.
 HYPERPARAMETERS: dict[str, Any] = {
-    "n_estimators": 300,
-    "max_depth": 30,
-    "min_samples_leaf": 3,
+    "n_estimators": 150,
+    "max_depth": 14,
+    "min_samples_leaf": 100,
     "max_features": "sqrt",
     "bootstrap": True,
     "oob_score": True,
