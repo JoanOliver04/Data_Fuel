@@ -10,8 +10,8 @@
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/SQLAlchemy-2.0%20async-D71F00" alt="SQLAlchemy 2.0" />
   <img src="https://img.shields.io/badge/scikit--learn-1.5-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn" />
-  <img src="https://img.shields.io/badge/tests-201%20passing-brightgreen" alt="201 tests passing" />
-  <img src="https://img.shields.io/badge/coverage-86%25-brightgreen" alt="Coverage 86%" />
+  <img src="https://img.shields.io/badge/tests-548%20passing-brightgreen" alt="548 tests passing" />
+  <img src="https://img.shields.io/badge/coverage-85%25-brightgreen" alt="Coverage 85%" />
   <img src="https://img.shields.io/badge/mypy-strict-blue" alt="mypy strict" />
   <img src="https://img.shields.io/badge/license-PolyForm%20NC%201.0-lightgrey" alt="License" />
 </p>
@@ -47,7 +47,7 @@ On top of this, a **scikit-learn Ridge regression** predicts the 48-hour price d
 - **Clean Architecture backend** — strict dependency direction (`domain → services → repositories → infrastructure → API`). No ORM leaks into domain, no HTTP into business logic.
 - **Async end-to-end** — FastAPI + SQLAlchemy 2.0 async + `httpx.AsyncClient`. Sync job runs on APScheduler without blocking the event loop.
 - **Typed end-to-end** — `mypy --strict` on the backend, `tsc --strict` + `exactOptionalPropertyTypes` + `noUncheckedIndexedAccess` on the frontend. Zero `any` leaking into public signatures.
-- **176 backend + 25 frontend tests, 86% coverage** — unit tests for domain logic, integration tests hitting a real in-memory SQLite via ASGI transport, repo-level tests for SQL behaviour. Frontend tests cover components, hooks, and API clients.
+- **454 backend + 94 frontend tests, 85% coverage** — unit tests for domain logic, integration tests hitting a real in-memory SQLite via ASGI transport, repo-level tests for SQL behaviour. Frontend tests cover components, hooks, and API clients.
 - **Real data source** — the official Spanish MITECO carburantes API (not web scraping), refreshed hourly via APScheduler with idempotent upserts.
 - **ML pipeline** — a `Pipeline` with `ColumnTransformer` (numerical scaling + one-hot encoding) + `Ridge` regression, trained on 30 days of price history with 6-hour per-fuel-type caching.
 - **Performance pass** — SQL-side bbox/radius prefilter (skips ~10 k row hydration per call), top-N pre-rank by haversine before the ORS Matrix call (~5× cheaper quota), async-safe TTL cache on `/recommendations` (cache hits return in <1 ms), GZip middleware (~70 % smaller JSON), Vite manual chunks + lazy-loaded routes and Recharts.
@@ -196,7 +196,7 @@ sequenceDiagram
 - **Training features** — hour-of-day, day-of-week, brand, province.
 - **Model** — `ColumnTransformer` (StandardScaler + OneHotEncoder) → `Ridge(alpha=1.0)`.
 - **Caching** — one trained pipeline per `FuelType`, TTL 6 h.
-- **Output** — predicted price at +48 h, percentage change, Spanish-language advice (`"Espera, el precio bajará…"` / `"Reposta ahora…"`), and the model's R² so users can see confidence.
+- **Output** — predicted price at +48 h, percentage change, Spanish-language advice (`"Espera, el precio bajará…"` / `"Reposta ahora…"`), and the model's **cross-validated** R² (k-fold on held-out folds, not in-sample) so the confidence shown to users is honest.
 
 ### UX
 - **Favourites** — heart toggle per station, persisted in `localStorage` via Zustand's `persist` middleware, plus a pill to filter results by favourites only.
@@ -329,8 +329,8 @@ The system is structured as a unidirectional, file-mediated data stream. Each st
                  │      python -m app.ml.training.entrenar
                  │      · LabelEncoder for municipio + comarca
                  │      · time-based 80/20 split (chronological holdout)
-                 │      · RandomForestRegressor(n_estimators=300,
-                 │        max_depth=30, min_samples_leaf=3,
+                 │      · RandomForestRegressor(n_estimators=150,
+                 │        max_depth=14, min_samples_leaf=100,
                  │        max_features="sqrt", oob_score=True, n_jobs=6)
                  │      · MAX_TRAIN_ROWS=1 500 000 · MAX_TEST_ROWS=300 000
                  │      · time-split MAE/R² + OOB R² persisted as metadata
@@ -403,12 +403,12 @@ The backend deploys two predictive models in parallel. Each is optimized for a d
 | Dimension | Parametric Baseline (Ridge) | Non-Parametric Ensemble (Random Forest) |
 |---|---|---|
 | Endpoint | `GET /api/v1/predictions/{station_id}/{fuel_type}` | `POST /api/v1/predictions/recommendation` |
-| Model class | `Pipeline(ColumnTransformer + Ridge(alpha=1.0))` | `RandomForestRegressor(n_estimators=300, max_depth=30, min_samples_leaf=3, max_features="sqrt", oob_score=True, n_jobs=6, random_state=42)` |
+| Model class | `Pipeline(ColumnTransformer + Ridge(alpha=1.0))` | `RandomForestRegressor(n_estimators=150, max_depth=14, min_samples_leaf=100, max_features="sqrt", oob_score=True, n_jobs=6, random_state=42)` |
 | Inference granularity | Pointwise, per-station | Aggregate, per-comarca |
 | Forecast horizon | 48 hours (short-term) | 7 days (medium-term) |
 | Update cadence | On-demand, 6-hour per-fuel cache | Off-line retraining, file-mediated artifact swap |
 | UI surface | Real-time trend badge on individual station asset cards | Comarca-wide recommendation module (`AiRecommendationButton` → `AiAdviceCard`) |
-| Inputs | Single-station historical series | Geolocation, fuel type, current cheapest price, comarca metadata |
+| Inputs | Single-station historical series | Geolocation, recommended-station coordinates, fuel type, current cheapest price (comarca derived server-side from `municipio`) |
 | Output schema | `predicted_price`, `direction` | `veredicto ∈ {REPOSTA AHORA, ESPERA}`, `variacion_pct`, `confianza` (R²) |
 | Design rationale | Lightweight, explainable, low cold-start latency — suited to high-frequency per-card rendering. | Captures non-linear feature interactions across the 15-feature space — required for medium-horizon regional inference. |
 
@@ -416,7 +416,7 @@ The split is deliberate: a parametric baseline handles high-frequency pointwise 
 
 ### 4. Production Performance KPIs & Benchmarks
 
-> **Validated against the v1.0 production artifact (`modelo_combustible.pkl`).** All metrics are persisted as keys inside the joblib bundle and exposed to the client via the recommendation endpoint as the displayed confidence score.
+> **Validated against the current production artifact (`modelo_combustible.pkl`).** All metrics are persisted as keys inside the joblib bundle and exposed to the client via the recommendation endpoint as the displayed confidence score.
 
 #### 4.1 Validation methodology
 
@@ -429,27 +429,28 @@ The bagging procedure additionally produces an **out-of-bag (OOB) R²** estimate
 | KPI | Value | Operational Interpretation |
 |---|---|---|
 | **Big Data Ingestion Volume** | **12,725,202** historical price records | Full 365-day MITECO backfill joined against the stations dimension. Confirms that the ETL pipeline sustains multi-million-row processing on commodity SQLite without external sharding. |
-| **Optimization Strategy** | **1,500,000** train · **300,000** test rows (`random_state=42`) | Per-half subsampling caps the Random Forest fit inside bounded CPU memory (`n_jobs=6`, `max_depth=30`) while preserving the joint feature distribution across the held-out future window. |
-| **Predictive Accuracy — MAE (time-split)** | **0.0488 €/L** | Mean Absolute Error on the chronologically held-out tail (≈ 73-day forecast horizon). A ~5-cent average error is within the typical intra-week price band on Spanish fuel markets. |
-| **Predictive Accuracy — R² (time-split)** | **0.8262** | The ensemble explains 82.62 % of the variance of `precio_prox_semana` on the unseen forecast window — robust performance against a deliberately strict, leakage-free benchmark. |
-| **Predictive Accuracy — R² (OOB)** | **0.9770** | Out-of-bag estimate computed by the bagging procedure. Independent confirmation of training-time fit quality (97.70 % variance explained on bootstrap residuals). |
+| **Optimization Strategy** | **1,500,000** train · **300,000** test rows (`random_state=42`) | Per-half subsampling caps the Random Forest fit inside bounded CPU memory (`n_jobs=6`, `max_depth=14`) while preserving the joint feature distribution across the held-out future window. |
+| **Predictive Accuracy — MAE (time-split)** | **0.0435 €/L** | Mean Absolute Error on the chronologically held-out tail. A ~4-cent average error is within the typical intra-week price band on Spanish fuel markets. |
+| **Predictive Accuracy — R² (time-split)** | **0.8531** | The ensemble explains 85.31 % of the variance of `precio_prox_semana` on the unseen forecast window — robust performance against a deliberately strict, leakage-free benchmark. |
+| **Predictive Accuracy — R² (OOB)** | **0.9600** | Out-of-bag estimate computed by the bagging procedure. Independent confirmation of training-time fit quality (96.00 % variance explained on bootstrap residuals). |
+| **Artifact footprint & latency** | **≈70 MB** · **~24 ms / prediction** | Re-tuned forest (150 trees, depth 14, min_samples_leaf 100). Right-sizing from a deeper configuration shrank the bundle ~130× and per-call latency ~180× **while raising** time-split R² (0.827 → 0.853) — the deep trees had been overfitting. |
 
 #### 4.3 Feature importance ranking (top 10)
 
-Gini-impurity-weighted importances from the trained ensemble. The three self-engineered market-extension features (in **bold**) collectively account for **~52 %** of the model's decision power, validating the feature-engineering investment.
+Gini-impurity-weighted importances from the trained ensemble. The three self-engineered market-context features (in **bold**) collectively account for **~76 %** of the model's decision power, validating the feature-engineering investment.
 
 | Rank | Feature | Importance |
 |---:|---|---:|
-| 1 | **`precio_semana_anterior`** | 0.3192 |
-| 2 | **`precio_medio_municipio`** | 0.2474 |
-| 3 | **`precio_vs_media_comarca`** | 0.1735 |
-| 4 | `tendencia_ultimos_30_dias` | 0.0646 |
-| 5 | `momentum_7d` | 0.0470 |
-| 6 | `distancia` | 0.0457 |
-| 7 | `mes` | 0.0380 |
-| 8 | `tipo_combustible` | 0.0354 |
-| 9 | `año` | 0.0138 |
-| 10 | `is_low_cost` | 0.0064 |
+| 1 | **`precio_semana_anterior`** | 0.3293 |
+| 2 | **`precio_medio_municipio`** | 0.2550 |
+| 3 | **`precio_vs_media_comarca`** | 0.1768 |
+| 4 | `tendencia_ultimos_30_dias` | 0.0610 |
+| 5 | `mes` | 0.0411 |
+| 6 | `momentum_7d` | 0.0396 |
+| 7 | `distancia` | 0.0383 |
+| 8 | `tipo_combustible` | 0.0345 |
+| 9 | `año` | 0.0166 |
+| 10 | `is_low_cost` | 0.0052 |
 
 ### 5. Operational CLI & Runbook
 
@@ -528,7 +529,7 @@ The following design choices are deliberate and reviewed against the constraints
 
 #### 6.1 Feature runtime caching (`is_low_cost`, `es_autopista`)
 
-`is_low_cost` and `es_autopista` are derived at **export time** from the `stations.brand` and `stations.address` text of every individual price observation — they participate fully in training and contribute their share of variance to the fit. At **inference time**, however, the recommendation contract intentionally exposes only `(lat, lon, fuel_type, municipio, comarca, precio_actual)` — there is no station identifier or address in the payload, and a faithful runtime reconstruction would require a point-in-polygon or k-NN spatial lookup against the full `stations` table on every request.
+`is_low_cost` and `es_autopista` are derived at **export time** from the `stations.brand` and `stations.address` text of every individual price observation — they participate fully in training and contribute their share of variance to the fit. At **inference time**, however, the recommendation payload carries only `(lat, lon, station_lat, station_lon, fuel_type, municipio, precio_actual)` — the comarca is resolved server-side from `municipio`, and there is no station identifier, brand, or address. A faithful runtime reconstruction of these two flags would therefore require a point-in-polygon or k-NN spatial lookup against the full `stations` table on every request.
 
 The chosen trade-off:
 
@@ -549,10 +550,10 @@ The artifact carries two complementary R² metrics, and the delta between them i
 
 | Metric | Value | What it measures |
 |---|---|---|
-| Out-of-bag R² | **0.9770** | Bagging-residual generalization on rows the trained ensemble has never seen, but drawn from the same temporal distribution as the training set. |
-| Time-split R² | **0.8262** | Strict chronological holdout: train on the first 80 % of the timeline, test on the last 20 %. Approximates how the model will perform on **next month's** prices. |
+| Out-of-bag R² | **0.9600** | Bagging-residual generalization on rows the trained ensemble has never seen, but drawn from the same temporal distribution as the training set. |
+| Time-split R² | **0.8531** | Strict chronological holdout: train on the first 80 % of the timeline, test on the last 20 %. Approximates how the model will perform on **next month's** prices. |
 
-The ~15-point spread is the cost of **market drift**: the test window contains fuel price regimes the model has never seen, including macro shifts in oil benchmarks, seasonal demand transitions, and tax-policy updates. Both numbers are honest; they answer different questions, and we publish both so the displayed confidence on the recommendation card (`r2` key, time-split number) is **not** the optimistic random-split figure.
+The ~11-point spread is the cost of **market drift**: the test window contains fuel price regimes the model has never seen, including macro shifts in oil benchmarks, seasonal demand transitions, and tax-policy updates. Both numbers are honest; they answer different questions, and we publish both so the displayed confidence on the recommendation card (`r2` key, time-split number) is **not** the optimistic random-split figure.
 
 The **next iteration** of the validation harness will replace the single time-split with a **5-fold `TimeSeriesSplit` (Walk-Forward Cross-Validation)**:
 
@@ -581,7 +582,7 @@ The codebase is **prepared for a horizontal-scale migration**: when the persiste
 ### Backend
 
 ```bash
-pytest                   # 176 tests, 86% coverage (branch), enforced via --cov-fail-under=80
+pytest                   # 454 tests, 85% coverage (branch), enforced via --cov-fail-under=80
 ruff check app tests     # lint + import order (E, F, I, N, UP, B, A, C4, SIM, RUF)
 mypy app                 # strict mode, plugins=[pydantic.mypy]
 ```
@@ -594,7 +595,7 @@ Key choices:
 ### Frontend
 
 ```bash
-npm test        # vitest — 25 tests across 6 files
+npm test        # vitest — 94 tests across 20 files
 npm run lint    # eslint (max-warnings 0)
 npm run typecheck
 npm run build   # tsc -b && vite build
