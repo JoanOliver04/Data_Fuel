@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections import OrderedDict
 from collections.abc import Hashable
 from typing import Any, Generic, TypeVar
 
@@ -23,17 +24,30 @@ V = TypeVar("V")
 
 
 class TTLCache(Generic[K, V]):
-    """Async-safe TTL dict.
+    """Async-safe TTL dict with optional LRU capacity bound.
 
     The lock serialises store mutations so concurrent requests with the same
     key cannot race a half-written entry. Reads lock too because dict mutations
     happen lazily on expiry.
+
+    Entries expire lazily on read, but on a high-cardinality cache that is only
+    fully cleared on an external event (e.g. recommendations, wiped per MITECO
+    sync) keys that are never re-read accumulate between clears. ``max_size``
+    bounds that growth: once exceeded, the least-recently-used entry is evicted
+    on insert. ``None`` (default) keeps the cache unbounded.
     """
 
-    def __init__(self, ttl_seconds: float = 300.0, *, name: str = "default") -> None:
+    def __init__(
+        self,
+        ttl_seconds: float = 300.0,
+        *,
+        name: str = "default",
+        max_size: int | None = None,
+    ) -> None:
         self._ttl = ttl_seconds
         self._name = name
-        self._store: dict[K, tuple[float, V]] = {}
+        self._max_size = max_size
+        self._store: OrderedDict[K, tuple[float, V]] = OrderedDict()
         self._lock = asyncio.Lock()
 
     def _record(self, result: str) -> None:
@@ -55,13 +69,19 @@ class TTLCache(Generic[K, V]):
                 self._record("miss")
                 self._update_size()
                 return None
+            self._store.move_to_end(key)  # mark most-recently-used for LRU
             self._record("hit")
             return value
 
     async def set(self, key: K, value: V) -> None:
         async with self._lock:
             self._store[key] = (time.monotonic() + self._ttl, value)
+            self._store.move_to_end(key)
             self._record("set")
+            if self._max_size is not None:
+                while len(self._store) > self._max_size:
+                    self._store.popitem(last=False)  # evict least-recently-used
+                    self._record("eviction")
             self._update_size()
 
     async def clear(self) -> None:
@@ -83,5 +103,5 @@ class TTLCache(Generic[K, V]):
 # after every MITECO sync because cached entries embed prices and distances
 # that may be stale once new data lands.
 recommendations_cache: TTLCache[tuple[Any, ...], list[Any]] = TTLCache(
-    ttl_seconds=300.0, name="recommendations"
+    ttl_seconds=300.0, name="recommendations", max_size=1024
 )

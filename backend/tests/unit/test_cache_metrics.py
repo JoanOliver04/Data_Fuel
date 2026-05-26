@@ -40,3 +40,19 @@ async def test_expiration_counter() -> None:
     exp0 = _ops("t_p4_exp", "expiration")
     assert await cache.get("k") is None  # already expired
     assert _ops("t_p4_exp", "expiration") == exp0 + 1.0
+
+
+async def test_lru_eviction_bounds_size() -> None:
+    cache: TTLCache[str, str] = TTLCache(ttl_seconds=100.0, name="t_lru", max_size=2)
+    evict0 = _ops("t_lru", "eviction")
+
+    await cache.set("a", "1")
+    await cache.set("b", "2")
+    await cache.get("a")  # touch "a" so "b" becomes least-recently-used
+    await cache.set("c", "3")  # over capacity → evict LRU ("b")
+
+    assert _ops("t_lru", "eviction") == evict0 + 1.0
+    assert cache.size() == 2
+    assert await cache.get("b") is None  # evicted
+    assert await cache.get("a") == "1"  # survived (recently used)
+    assert await cache.get("c") == "3"

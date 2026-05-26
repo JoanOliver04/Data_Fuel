@@ -76,7 +76,7 @@ http_exceptions_total = Counter(
 cache_operations_total = Counter(
     "datafuel_cache_operations_total",
     "In-process cache operations by cache name and result "
-    "(hit, miss, set, expiration, invalidation).",
+    "(hit, miss, set, expiration, eviction, invalidation).",
     ["cache", "result"],
     registry=REGISTRY,
 )
