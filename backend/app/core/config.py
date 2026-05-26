@@ -131,6 +131,19 @@ class Settings(BaseSettings):
     retrain_max_mae_regression_pct: float = Field(default=0.10, ge=0.0)
     retrain_max_r2_absolute_drop: float = Field(default=0.05, ge=0.0)
 
+    @field_validator("retrain_max_mae", "retrain_min_r2", mode="before")
+    @classmethod
+    def _blank_optional_float_to_none(cls, value: str | float | None) -> str | float | None:
+        """Treat an empty/whitespace env value as 'unset' for optional guards.
+
+        `.env` / `.env.example` document these as blank (`RETRAIN_MAX_MAE=`) to
+        mean "disabled". Without this, pydantic tries to parse "" as a float and
+        crashes startup, so a verbatim copy of `.env.example` would not boot.
+        """
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        return value
+
     # ─── ML retraining schedule ───────────────────────────
     # Opt-in: the weekly retrain is heavy, so it is disabled by default.
     retrain_enabled: bool = False

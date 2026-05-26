@@ -44,3 +44,22 @@ def test_get_settings_is_cached() -> None:
 def test_negative_km_cost_rejected() -> None:
     with pytest.raises(ValueError):
         Settings(_env_file=None, default_km_cost=-1.0)
+
+
+def test_blank_retrain_guards_parse_as_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Empty `RETRAIN_MAX_MAE=` / `RETRAIN_MIN_R2=` mean 'disabled', not a parse error.
+
+    `.env.example` ships these blank; without coercion pydantic would crash on
+    boot trying to read "" as a float.
+    """
+    monkeypatch.setenv("RETRAIN_MAX_MAE", "")
+    monkeypatch.setenv("RETRAIN_MIN_R2", "  ")
+    settings = get_settings()
+    assert settings.retrain_max_mae is None
+    assert settings.retrain_min_r2 is None
+
+
+def test_retrain_guards_still_parse_numbers() -> None:
+    settings = Settings(_env_file=None, retrain_max_mae=0.05, retrain_min_r2=0.8)
+    assert settings.retrain_max_mae == 0.05
+    assert settings.retrain_min_r2 == 0.8

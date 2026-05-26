@@ -49,6 +49,10 @@ dist/
 *.sqlite
 *.sqlite3
 *.db
+# SQLite transient sidecars (journal / write-ahead log / shared-memory)
+*.db-journal
+*.db-wal
+*.db-shm
 
 # ─── ML artifacts (generated — regenerate with scripts/) ──
 backend/data/datos.csv

@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/SQLAlchemy-2.0%20async-D71F00" alt="SQLAlchemy 2.0" />
   <img src="https://img.shields.io/badge/scikit--learn-1.5-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn" />
-  <img src="https://img.shields.io/badge/tests-548%20passing-brightgreen" alt="548 tests passing" />
+  <img src="https://img.shields.io/badge/tests-550%20passing-brightgreen" alt="550 tests passing" />
   <img src="https://img.shields.io/badge/coverage-85%25-brightgreen" alt="Coverage 85%" />
   <img src="https://img.shields.io/badge/mypy-strict-blue" alt="mypy strict" />
   <img src="https://img.shields.io/badge/license-PolyForm%20NC%201.0-lightgrey" alt="License" />
@@ -47,7 +47,7 @@ On top of this, a **scikit-learn Ridge regression** predicts the 48-hour price d
 - **Clean Architecture backend** — strict dependency direction (`domain → services → repositories → infrastructure → API`). No ORM leaks into domain, no HTTP into business logic.
 - **Async end-to-end** — FastAPI + SQLAlchemy 2.0 async + `httpx.AsyncClient`. Sync job runs on APScheduler without blocking the event loop.
 - **Typed end-to-end** — `mypy --strict` on the backend, `tsc --strict` + `exactOptionalPropertyTypes` + `noUncheckedIndexedAccess` on the frontend. Zero `any` leaking into public signatures.
-- **454 backend + 94 frontend tests, 85% coverage** — unit tests for domain logic, integration tests hitting a real in-memory SQLite via ASGI transport, repo-level tests for SQL behaviour. Frontend tests cover components, hooks, and API clients.
+- **456 backend + 94 frontend tests, 85% coverage** — unit tests for domain logic, integration tests hitting a real in-memory SQLite via ASGI transport, repo-level tests for SQL behaviour. Frontend tests cover components, hooks, and API clients.
 - **Real data source** — the official Spanish MITECO carburantes API (not web scraping), refreshed hourly via APScheduler with idempotent upserts.
 - **ML pipeline** — a `Pipeline` with `ColumnTransformer` (numerical scaling + one-hot encoding) + `Ridge` regression, trained on 30 days of price history with 6-hour per-fuel-type caching.
 - **Performance pass** — SQL-side bbox/radius prefilter (skips ~10 k row hydration per call), top-N pre-rank by haversine before the ORS Matrix call (~5× cheaper quota), async-safe TTL cache on `/recommendations` (cache hits return in <1 ms), GZip middleware (~70 % smaller JSON), Vite manual chunks + lazy-loaded routes and Recharts.
@@ -582,7 +582,7 @@ The codebase is **prepared for a horizontal-scale migration**: when the persiste
 ### Backend
 
 ```bash
-pytest                   # 454 tests, 85% coverage (branch), enforced via --cov-fail-under=80
+pytest                   # 456 tests, 85% coverage (branch), enforced via --cov-fail-under=80
 ruff check app tests     # lint + import order (E, F, I, N, UP, B, A, C4, SIM, RUF)
 mypy app                 # strict mode, plugins=[pydantic.mypy]
 ```
