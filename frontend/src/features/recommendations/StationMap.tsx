@@ -1,7 +1,9 @@
 import "leaflet/dist/leaflet.css";
 import { divIcon, latLngBounds, type DivIcon, type LatLngExpression } from "leaflet";
 import { useEffect } from "react";
-import { CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { CircleMarker, MapContainer, Marker, Popup, useMap } from "react-leaflet";
+
+import { BaseTileLayer } from "@/features/map/components/BaseTileLayer";
 
 import type { RecommendationItem } from "./types";
 import { formatDrivingSummary } from "./utils";
@@ -47,10 +49,7 @@ export function StationMap({ items, userLat, userLon }: StationMapProps) {
       className="h-72 w-full rounded-lg"
       scrollWheelZoom={false}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <BaseTileLayer />
       <FitBounds positions={allPositions} />
       <CircleMarker
         center={userPos}

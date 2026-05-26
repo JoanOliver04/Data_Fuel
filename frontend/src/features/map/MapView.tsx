@@ -1,14 +1,13 @@
 import "leaflet/dist/leaflet.css";
 
 import { divIcon, type DivIcon, type LatLngBounds } from "leaflet";
-import { Flame, Loader2, MapPin } from "lucide-react";
+import { Flame, Loader2, MapPin, TrafficCone } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   CircleMarker,
   MapContainer,
   Marker,
   Popup,
-  TileLayer,
   useMap,
   useMapEvents,
 } from "react-leaflet";
@@ -17,10 +16,13 @@ import { cn } from "@/lib/utils";
 import { HeatmapLayer } from "@/features/heatmap/HeatmapLayer";
 import { HeatmapLegend } from "@/features/heatmap/HeatmapLegend";
 import type { HeatmapParams } from "@/features/heatmap/types";
+import { BaseTileLayer } from "@/features/map/components/BaseTileLayer";
 import { PinLocationControl } from "@/features/map/components/PinLocationControl";
 import { PinLocationHint } from "@/features/map/components/PinLocationHint";
+import { TrafficTileLayer } from "@/features/map/components/TrafficTileLayer";
 import { UserSelectedMarker } from "@/features/map/components/UserSelectedMarker";
 import { usePinLocationMode } from "@/features/map/hooks/usePinLocationMode";
+import { TOMTOM_TILES_ENABLED } from "@/features/map/tiles";
 import type { RecommendationItem } from "@/features/recommendations/types";
 import { formatDrivingSummary } from "@/features/recommendations/utils";
 import type { FuelType } from "@/types/fuel";
@@ -241,6 +243,7 @@ export function MapView({
 }: MapViewProps) {
   const [pendingBounds, setPendingBounds] = useState<LatLngBounds | null>(null);
   const [heatmapMode, setHeatmapMode] = useState(false);
+  const [trafficMode, setTrafficMode] = useState(false);
   const pin = usePinLocationMode();
   const userPos: [number, number] = [userLat, userLon];
 
@@ -280,10 +283,8 @@ export function MapView({
         scrollWheelZoom
         zoomControl
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <BaseTileLayer />
+        {trafficMode && <TrafficTileLayer />}
 
         <BoundsWatcher hasSearched={items.length > 0} onMapMoved={handleMapMoved} />
         <FlyToHandler lat={userLat} lon={userLon} />
@@ -367,42 +368,59 @@ export function MapView({
         </div>
       )}
 
-      {/* Heatmap toggle — only shown when the parent supplied the params
-          needed to fetch the layer (radius + fuel). */}
-      {radiusKm !== undefined && fuel !== undefined && (
-        <button
-          type="button"
-          onClick={() => setHeatmapMode((p) => !p)}
-          aria-pressed={heatmapMode}
-          aria-label="Mostrar mapa de calor de precios"
-          className={cn(
-            "absolute right-3 top-3 z-[500] flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-md ring-1 ring-border backdrop-blur-sm transition-colors",
-            heatmapMode
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-background/95 text-foreground hover:bg-background",
-          )}
-        >
-          <Flame className="h-3.5 w-3.5" />
-          Heatmap
-        </button>
-      )}
+      {/* Layer toggles + status — a single top-right stack. Items flow in
+          source order, so the spinner sits below whatever toggles are present
+          with no manual offset math. */}
+      <div className="absolute right-3 top-3 z-[500] flex flex-col items-end gap-2">
+        {/* Heatmap toggle — only when the parent supplied radius + fuel. */}
+        {radiusKm !== undefined && fuel !== undefined && (
+          <button
+            type="button"
+            onClick={() => setHeatmapMode((p) => !p)}
+            aria-pressed={heatmapMode}
+            aria-label="Mostrar mapa de calor de precios"
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-md ring-1 ring-border backdrop-blur-sm transition-colors",
+              heatmapMode
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-background/95 text-foreground hover:bg-background",
+            )}
+          >
+            <Flame className="h-3.5 w-3.5" />
+            Heatmap
+          </button>
+        )}
 
-      {/* Heatmap legend — paired with the toggle so the colour meaning is
-          self-explanatory whenever the layer is on. */}
+        {/* Live-traffic toggle — only when TomTom tiles are configured, since
+            the overlay reuses the same key. */}
+        {TOMTOM_TILES_ENABLED && (
+          <button
+            type="button"
+            onClick={() => setTrafficMode((p) => !p)}
+            aria-pressed={trafficMode}
+            aria-label="Mostrar tráfico en vivo"
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-md ring-1 ring-border backdrop-blur-sm transition-colors",
+              trafficMode
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-background/95 text-foreground hover:bg-background",
+            )}
+          >
+            <TrafficCone className="h-3.5 w-3.5" />
+            Tráfico
+          </button>
+        )}
+
+        {isLoading && (
+          <div className="rounded-full bg-background/90 p-2 shadow-md">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          </div>
+        )}
+      </div>
+
+      {/* Heatmap legend — bottom-left, paired with the toggle so the colour
+          meaning is self-explanatory whenever the layer is on. */}
       {heatmapMode && <HeatmapLegend />}
-
-      {/* Loading indicator — nudged below the toggle when the heatmap
-          control is rendered, otherwise it would overlap. */}
-      {isLoading && (
-        <div
-          className={cn(
-            "absolute right-3 z-[500] rounded-full bg-background/90 p-2 shadow-md",
-            radiusKm !== undefined && fuel !== undefined ? "top-14" : "top-3",
-          )}
-        >
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        </div>
-      )}
     </div>
   );
 }
