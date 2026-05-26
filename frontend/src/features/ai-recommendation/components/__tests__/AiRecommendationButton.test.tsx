@@ -33,7 +33,6 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 const DEFAULT_PROPS = {
   municipio: "Valencia",
-  comarca: "Horta de València",
   precioActual: 1.529,
   onResult: vi.fn(),
 };

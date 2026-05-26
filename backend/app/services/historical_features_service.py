@@ -47,6 +47,18 @@ def municipios_in_comarca(comarca: str) -> tuple[str, ...]:
     return tuple(m for m, c in _comarcas_map().items() if c == comarca)
 
 
+@lru_cache(maxsize=1024)
+def comarca_for_municipio(municipio: str) -> str | None:
+    """Forward lookup: the comarca a ``municipio`` belongs to, or ``None``.
+
+    The authoritative ``municipio → comarca`` mapping lives here (server-side
+    JSON), so callers that only know the municipio — e.g. the recommendation
+    endpoint, which receives the station's municipio but not its comarca — can
+    resolve the real comarca instead of relying on a client-supplied value.
+    """
+    return _comarcas_map().get(municipio)
+
+
 def _day_bounds(d: date) -> tuple[datetime, datetime]:
     start = datetime.combine(d, datetime.min.time())
     return start, start + timedelta(days=1)

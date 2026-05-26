@@ -52,7 +52,9 @@ class RecommendationRequest(BaseModel):
     lon: float = Field(ge=-180, le=180, description="User longitude (WGS84)")
     fuel_type: FuelType
     municipio: str
-    comarca: str
+    # Optional: the server derives the real comarca from ``municipio``. Accepted
+    # only as a fallback for municipios outside the comarca map.
+    comarca: str | None = Field(default=None)
     precio_actual: float = Field(gt=0, description="Current fuel price at the station (€/L)")
 
 

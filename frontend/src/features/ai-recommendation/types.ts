@@ -5,7 +5,7 @@ export interface AiRecommendationRequest {
   lon: number;
   fuel_type: FuelType;
   municipio: string;
-  comarca: string;
+  // comarca is resolved server-side from `municipio`; the client does not send it.
   precio_actual: number;
 }
 

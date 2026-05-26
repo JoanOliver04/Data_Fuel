@@ -41,6 +41,7 @@ from app.ml.data.holidays import is_festivo
 from app.ml.inference.model_loader import get_modelo
 from app.services.geopy_distance_service import calcular_distancia_geodesica
 from app.services.historical_features_service import (
+    comarca_for_municipio,
     comarca_mean_price,
     municipio_mean_price,
     municipio_mean_price_window,
@@ -68,10 +69,16 @@ async def generar_recomendacion(
     lon: float,
     fuel_type: FuelType,
     municipio: str,
-    comarca: str,
+    comarca: str | None,
     precio_actual: float,
 ) -> dict[str, Any]:
     """Predict next-week price and return a refuel-now-or-wait verdict.
+
+    The comarca is resolved server-side from ``municipio`` via the authoritative
+    ``municipio → comarca`` map; the optional ``comarca`` argument is only a
+    fallback for municipios outside that map. This keeps the comarca-based
+    features (``comarca_enc``, ``precio_vs_media_comarca``) aligned with what the
+    model saw at training time instead of degrading to a client placeholder.
 
     Raises RuntimeError if the model is not loaded (caller must convert to 503).
     """
@@ -82,6 +89,8 @@ async def generar_recomendacion(
     model = artifact["model"]
     le_municipio = artifact["label_encoder_municipio"]
     le_comarca = artifact["label_encoder_comarca"]
+
+    comarca = comarca_for_municipio(municipio) or comarca or ""
 
     today = date.today()
     last_week = today - timedelta(days=7)
