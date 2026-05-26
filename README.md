@@ -194,7 +194,7 @@ sequenceDiagram
 
 ### AI / ML
 - **Training features** — hour-of-day, day-of-week, brand, province.
-- **Model** — `ColumnTransformer` (StandardScaler + OneHotEncoder) → `Ridge(alpha=1.0)`.
+- **Model** — `ColumnTransformer` (StandardScaler + a **sparse**, `float32` `OneHotEncoder`) → `Ridge(alpha=1.0)`. The encoder stays sparse end-to-end, so high-cardinality `brand`/`province` (~3.3k one-hot columns) never densify the design matrix — Ridge consumes the sparse stack directly (an 80k-row fit drops from ~2 GiB dense to a few MB).
 - **Caching** — one trained pipeline per `FuelType`, TTL 6 h.
 - **Output** — predicted price at +48 h, percentage change, Spanish-language advice (`"Espera, el precio bajará…"` / `"Reposta ahora…"`), and the model's **cross-validated** R² (k-fold on held-out folds, not in-sample) so the confidence shown to users is honest.
 
@@ -403,7 +403,7 @@ The backend deploys two predictive models in parallel. Each is optimized for a d
 | Dimension | Parametric Baseline (Ridge) | Non-Parametric Ensemble (Random Forest) |
 |---|---|---|
 | Endpoint | `GET /api/v1/predictions/{station_id}/{fuel_type}` | `POST /api/v1/predictions/recommendation` |
-| Model class | `Pipeline(ColumnTransformer + Ridge(alpha=1.0))` | `RandomForestRegressor(n_estimators=150, max_depth=14, min_samples_leaf=100, max_features="sqrt", oob_score=True, n_jobs=6, random_state=42)` |
+| Model class | `Pipeline(ColumnTransformer[sparse OneHotEncoder] + Ridge(alpha=1.0))` | `RandomForestRegressor(n_estimators=150, max_depth=14, min_samples_leaf=100, max_features="sqrt", oob_score=True, n_jobs=6, random_state=42)` |
 | Inference granularity | Pointwise, per-station | Aggregate, per-comarca |
 | Forecast horizon | 48 hours (short-term) | 7 days (medium-term) |
 | Update cadence | On-demand, 6-hour per-fuel cache | Off-line retraining, file-mediated artifact swap |
