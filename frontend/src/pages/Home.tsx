@@ -13,6 +13,7 @@ import { StandaloneBadge } from "@/features/pwa/StandaloneBadge";
 import { SearchBar } from "@/features/search/SearchBar";
 import { FiltersBar } from "@/features/search/FiltersBar";
 import { useRecommendations } from "@/features/recommendations/hooks";
+import { isStationOpenNow } from "@/features/recommendations/utils";
 import { StationList } from "@/features/recommendations/StationList";
 import type { RecommendationItem, RecommendationParams } from "@/features/recommendations/types";
 import { SmartAdviceCard } from "@/features/smart-advice/SmartAdviceCard";
@@ -110,14 +111,6 @@ function BottomSheet({ children }: BottomSheetProps) {
   );
 }
 
-// ── stationIsOpen ────────────────────────────────────────────────────────────
-
-function stationIsOpen(schedule: string): boolean {
-  if (!schedule) return true;
-  const s = schedule.toUpperCase();
-  return s.includes("24H") || s.includes("L-D: 24");
-}
-
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 export function Home() {
@@ -191,7 +184,7 @@ export function Home() {
       items = items.filter((item) => filterBrands.includes(item.brand));
     }
     if (filterOpenNow) {
-      items = items.filter((item) => stationIsOpen(item.schedule));
+      items = items.filter((item) => isStationOpenNow(item.schedule));
     }
 
     items.sort((a, b) => {
