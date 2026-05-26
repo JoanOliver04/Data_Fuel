@@ -112,5 +112,7 @@ async def post_recommendation(
         municipio=payload.municipio,
         comarca=payload.comarca,
         precio_actual=payload.precio_actual,
+        station_lat=payload.station_lat,
+        station_lon=payload.station_lon,
     )
     return RecommendationResponse(**result)

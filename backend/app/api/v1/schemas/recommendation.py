@@ -55,6 +55,11 @@ class RecommendationRequest(BaseModel):
     # Optional: the server derives the real comarca from ``municipio``. Accepted
     # only as a fallback for municipios outside the comarca map.
     comarca: str | None = Field(default=None)
+    # Coordinates of the station being advised about. When present, the model's
+    # `distancia` feature is computed station-side (matching training); when
+    # absent it falls back to the user's (lat, lon) as a proxy.
+    station_lat: float | None = Field(default=None, ge=-90, le=90)
+    station_lon: float | None = Field(default=None, ge=-180, le=180)
     precio_actual: float = Field(gt=0, description="Current fuel price at the station (€/L)")
 
 

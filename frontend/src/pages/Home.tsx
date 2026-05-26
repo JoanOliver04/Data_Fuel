@@ -275,6 +275,8 @@ export function Home() {
                 <div className="shrink-0 px-4 pt-2">
                   <AiRecommendationButton
                     municipio={aiStation.municipality}
+                    stationLat={aiStation.latitude}
+                    stationLon={aiStation.longitude}
                     precioActual={aiStation.price_per_liter}
                     onResult={setAiResult}
                   />
@@ -360,6 +362,8 @@ export function Home() {
                 <div className="px-4 pt-2">
                   <AiRecommendationButton
                     municipio={aiStation.municipality}
+                    stationLat={aiStation.latitude}
+                    stationLon={aiStation.longitude}
                     precioActual={aiStation.price_per_liter}
                     onResult={setAiResult}
                   />

@@ -8,12 +8,16 @@ import type { AiRecommendationRequest, AiRecommendationResponse } from "../types
 
 interface AiRecommendationButtonProps {
   municipio: string;
+  stationLat: number;
+  stationLon: number;
   precioActual: number;
   onResult: (result: AiRecommendationResponse) => void;
 }
 
 export function AiRecommendationButton({
   municipio,
+  stationLat,
+  stationLon,
   precioActual,
   onResult,
 }: AiRecommendationButtonProps) {
@@ -29,6 +33,8 @@ export function AiRecommendationButton({
       lon: userLon!,
       fuel_type: preferredFuel,
       municipio,
+      station_lat: stationLat,
+      station_lon: stationLon,
       precio_actual: precioActual,
     };
     mutate(payload, { onSuccess: onResult });

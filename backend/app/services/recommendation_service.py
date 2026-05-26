@@ -71,6 +71,8 @@ async def generar_recomendacion(
     municipio: str,
     comarca: str | None,
     precio_actual: float,
+    station_lat: float | None = None,
+    station_lon: float | None = None,
 ) -> dict[str, Any]:
     """Predict next-week price and return a refuel-now-or-wait verdict.
 
@@ -95,7 +97,15 @@ async def generar_recomendacion(
     today = date.today()
     last_week = today - timedelta(days=7)
 
-    distancia = calcular_distancia_geodesica(_ALZIRA, (lat, lon))
+    # Training computes `distancia` as Alzira→station, so prefer the station's
+    # own coordinates here; the user's (lat, lon) is only a proxy when the
+    # station position is not supplied (avoids train/serve feature skew).
+    dist_coord = (
+        (station_lat, station_lon)
+        if station_lat is not None and station_lon is not None
+        else (lat, lon)
+    )
+    distancia = calcular_distancia_geodesica(_ALZIRA, dist_coord)
     tipo_combustible = FUEL_TYPE_TO_ID[fuel_type]
     municipio_enc = _encode(le_municipio, municipio)
     comarca_enc = _encode(le_comarca, comarca)

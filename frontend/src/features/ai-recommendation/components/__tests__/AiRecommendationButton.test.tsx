@@ -33,6 +33,8 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 const DEFAULT_PROPS = {
   municipio: "Valencia",
+  stationLat: 39.47,
+  stationLon: -0.38,
   precioActual: 1.529,
   onResult: vi.fn(),
 };
