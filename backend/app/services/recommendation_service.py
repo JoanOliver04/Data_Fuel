@@ -15,7 +15,7 @@ Feature order (15 columns, must match FEATURE_COLUMNS in entrenar.py):
 The four highest-importance market-context features
 (``precio_semana_anterior``, ``precio_medio_municipio``,
 ``precio_vs_media_comarca``, ``tendencia_ultimos_30_dias`` — together
-~74 % of the trained model's decision power) are populated at runtime
+~82 % of the trained model's decision power) are populated at runtime
 from the live ``price_history`` table via
 ``app.services.historical_features_service``. The two brand-derived
 flags (``is_low_cost``, ``es_autopista``) keep their conservative

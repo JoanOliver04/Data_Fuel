@@ -82,9 +82,9 @@ FEATURE_COLUMNS: list[str] = [
 # (max_depth=30, min_samples_leaf=3) forest grew to ~436k nodes/tree → an 8.8 GB
 # artifact that took ~78 s to load and ~4.3 s PER prediction, and it overfit:
 # memorizing per-(station,day) levels rather than forecasting forward. Shallower
-# trees with larger leaves both shrink the model ~166x (8.8 GB → ~55 MB) and
-# IMPROVE honest time-split holdout accuracy (R² 0.827 → 0.861, MAE 0.049 →
-# 0.042). max_features="sqrt" keeps per-tree feature subsampling for ensemble
+# trees with larger leaves both shrink the model ~128x (8.8 GB → ~70 MB) and
+# IMPROVE honest time-split holdout accuracy (R² 0.827 → 0.853, MAE 0.049 →
+# 0.044). max_features="sqrt" keeps per-tree feature subsampling for ensemble
 # diversity. n_jobs=6 leaves headroom on standard 8-12 core dev machines.
 HYPERPARAMETERS: dict[str, Any] = {
     "n_estimators": 150,

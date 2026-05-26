@@ -540,7 +540,7 @@ The chosen trade-off:
 | Quantified impact | Combined Gini importance of the two features is **< 0.7 %** of the trained ensemble's decision power. |
 | Latency budget preserved | API response time stays in the **sub-millisecond regime** (no spatial join per request, no nearest-neighbour scan over ~10 k stations). |
 
-The recommendation surface is **aggregate, comarca-level** — not a per-station scoring API — and the comarca-level inference already explains **> 97 %** of out-of-bag variance through the four high-importance market-context features (`precio_semana_anterior`, `precio_medio_municipio`, `precio_vs_media_comarca`, `tendencia_ultimos_30_dias`). Adding a per-request spatial calculation to recover < 1 % of model power is not a defensible engineering trade.
+The recommendation surface is **aggregate, comarca-level** — not a per-station scoring API — and the comarca-level inference already explains **~96 %** of out-of-bag variance, driven by the four high-importance market-context features (`precio_semana_anterior`, `precio_medio_municipio`, `precio_vs_media_comarca`, `tendencia_ultimos_30_dias`, together ~82 % of total importance). Adding a per-request spatial calculation to recover < 1 % of model power is not a defensible engineering trade.
 
 If a future product surface requires per-station verdicts, the path is well-defined: extend the request schema with a `station_id`, look up `brand` / `address` in O(1) from a station cache, and lift the two flags to their true values.
 
