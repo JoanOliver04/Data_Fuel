@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import Ridge
+from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -124,8 +125,20 @@ def _train(rows: list[TrainingRow]) -> tuple[Pipeline, float]:
         ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), ["brand", "province"]),
     ])
     pipeline = Pipeline([("prep", preprocessor), ("reg", Ridge(alpha=1.0))])
+
+    # Report an honest generalization estimate (k-fold CV R² on held-out folds),
+    # not pipeline.score(X, y), which is the in-sample fit and overstates the
+    # confidence shown to users. The returned model is still fit on all rows;
+    # cross_val_score clones internally and does not fit `pipeline` itself.
+    n_splits = min(5, len(df))
+    r2 = (
+        float(cross_val_score(pipeline, X, y, cv=n_splits, scoring="r2").mean())
+        if n_splits >= 2
+        else 0.0
+    )
+
     pipeline.fit(X, y)
-    return pipeline, float(pipeline.score(X, y))
+    return pipeline, r2
 
 
 def _make_advice(change_pct: float) -> str:
