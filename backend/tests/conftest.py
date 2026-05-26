@@ -52,6 +52,11 @@ def test_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("DISTANCE_MODE", "EUCLIDEAN")
     monkeypatch.setenv("ORS_API_KEY", "")
     monkeypatch.setenv("TOMTOM_API_KEY", "")
+    # Same reasoning for the LLM: with no key the provider factory degrades to
+    # the deterministic fallback, so the suite never calls OpenRouter/OpenAI
+    # regardless of the developer's .env. LLM tests mock the provider directly.
+    monkeypatch.setenv("OPENROUTER_API_KEY", "")
+    monkeypatch.setenv("LLM_API_KEY", "")
     return get_settings()
 
 

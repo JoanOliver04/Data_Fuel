@@ -1,5 +1,6 @@
 """Predictions endpoint: 48h Ridge forecast + AI RF refuel-advice."""
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -66,11 +67,16 @@ async def get_prediction(
             status_code=404, detail="No current price for this fuel type at this station"
         )
 
-    raw = await PriceRepository(session).get_training_data(fuel_type)
-    rows = [TrainingRow(**r) for r in raw]
-    log.debug("predictions: %d training rows for fuel=%s", len(rows), fuel_type)
+    # Skip the (potentially huge) training-data load on a warm model cache.
+    rows: list[TrainingRow] = []
+    if not prediction_svc.has_fresh_model(fuel_type):
+        raw = await PriceRepository(session).get_training_data(fuel_type)
+        rows = [TrainingRow(**r) for r in raw]
+        log.debug("predictions: %d training rows for fuel=%s", len(rows), fuel_type)
 
-    result = prediction_svc.predict(
+    # CPU-bound train + inference: keep it off the event loop.
+    result = await asyncio.to_thread(
+        prediction_svc.predict,
         rows=rows,
         current_price=float(current_price),
         brand=station.brand,

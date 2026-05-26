@@ -9,6 +9,7 @@ affect the underlying recommendation/prediction endpoints.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date, timedelta
 from typing import Annotated, Literal
@@ -125,9 +126,16 @@ async def _build_facts(
         return None
 
     best = ranked[0]
-    raw = await PriceRepository(session).get_training_data(fuel_type)
-    rows = [TrainingRow(**r) for r in raw]
-    prediction = prediction_svc.predict(
+    # Skip the (potentially huge) training-data load when a fresh model is
+    # cached; predict() only needs rows on a cold/stale cache.
+    rows: list[TrainingRow] = []
+    if not prediction_svc.has_fresh_model(fuel_type):
+        raw = await PriceRepository(session).get_training_data(fuel_type)
+        rows = [TrainingRow(**r) for r in raw]
+    # Training + inference are CPU-bound and synchronous; run them in a worker
+    # thread so they never block the event loop (and starve other requests).
+    prediction = await asyncio.to_thread(
+        prediction_svc.predict,
         rows=rows,
         current_price=float(best.price_per_liter),
         brand=best.brand,

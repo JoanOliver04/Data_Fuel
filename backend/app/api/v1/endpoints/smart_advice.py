@@ -1,5 +1,6 @@
 """Smart refuelling advisor endpoint."""
 
+import asyncio
 import logging
 from typing import Annotated
 
@@ -80,10 +81,15 @@ async def get_smart_advice(
         float(best.price_per_liter),
     )
 
-    raw = await PriceRepository(session).get_training_data(fuel_type)
-    rows = [TrainingRow(**r) for r in raw]
+    # Skip the (potentially huge) training-data load on a warm model cache.
+    rows: list[TrainingRow] = []
+    if not prediction_svc.has_fresh_model(fuel_type):
+        raw = await PriceRepository(session).get_training_data(fuel_type)
+        rows = [TrainingRow(**r) for r in raw]
 
-    prediction = prediction_svc.predict(
+    # CPU-bound train + inference: keep it off the event loop.
+    prediction = await asyncio.to_thread(
+        prediction_svc.predict,
         rows=rows,
         current_price=float(best.price_per_liter),
         brand=best.brand,

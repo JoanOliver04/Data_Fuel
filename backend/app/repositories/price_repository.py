@@ -13,6 +13,13 @@ from app.infrastructure.database.models.station import StationORM
 # Safe chunk size: 999 // 4 cols = 249.
 _CHUNK = 200
 
+# Cap the in-process Ridge predictor's training pull. A multi-GB history would
+# otherwise be materialised in full on every cold-cache predict, freezing the
+# event loop and risking OOM. We take the most-recent rows (an index-ordered
+# range scan on ix_price_history_fuel_time, no full-table scan) — recent prices
+# are the most predictive, and the cap is large enough not to starve the model.
+_TRAIN_ROW_CAP = 100_000
+
 
 class PriceRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -50,8 +57,16 @@ class PriceRepository:
         result = await self._session.execute(stmt)
         return [{"recorded_at": row.recorded_at, "price": float(row.price)} for row in result]
 
-    async def get_training_data(self, fuel_type: FuelType) -> list[dict[str, Any]]:
-        """Return price rows joined with station metadata for ML training."""
+    async def get_training_data(
+        self,
+        fuel_type: FuelType,
+        *,
+        limit: int = _TRAIN_ROW_CAP,
+    ) -> list[dict[str, Any]]:
+        """Return the most-recent price rows joined with station metadata for ML
+        training, capped at ``limit`` so the pull stays bounded regardless of
+        total history size.
+        """
         stmt = (
             select(
                 PriceHistoryORM.price,
@@ -61,6 +76,8 @@ class PriceRepository:
             )
             .join(StationORM, PriceHistoryORM.station_id == StationORM.id)
             .where(PriceHistoryORM.fuel_type == fuel_type)
+            .order_by(PriceHistoryORM.recorded_at.desc())
+            .limit(limit)
         )
         result = await self._session.execute(stmt)
         return [

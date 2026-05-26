@@ -60,10 +60,13 @@ class PredictionService:
         fuel_type: FuelType,
     ) -> PredictionResult | None:
         """Return a PredictionResult, or None when training data is insufficient."""
-        if len(rows) < MIN_SAMPLES:
-            return None
-
-        model, r2 = self._get_or_train(fuel_type, rows)
+        trained = self._fresh_cached(fuel_type)
+        if trained is None:
+            # No usable cached model: a (re)train is required, which needs rows.
+            if len(rows) < MIN_SAMPLES:
+                return None
+            trained = self._train_and_cache(fuel_type, rows)
+        model, r2 = trained
 
         future = datetime.now(UTC) + timedelta(hours=HORIZON_HOURS)
         X_pred = pd.DataFrame([{
@@ -84,15 +87,26 @@ class PredictionService:
             model_r2=round(r2, 3),
         )
 
-    def _get_or_train(
+    def has_fresh_model(self, fuel_type: FuelType) -> bool:
+        """Whether a non-stale model is cached.
+
+        Lets callers skip the expensive training-data load entirely on a warm
+        cache: ``predict`` does not touch ``rows`` when a fresh model exists.
+        """
+        return self._fresh_cached(fuel_type) is not None
+
+    def _fresh_cached(self, fuel_type: FuelType) -> tuple[Pipeline, float] | None:
+        cached = self._cache.get(fuel_type)
+        if cached is None:
+            return None
+        model, r2, trained_at = cached
+        if (datetime.now(UTC) - trained_at).total_seconds() < _CACHE_TTL_SECONDS:
+            return model, r2
+        return None
+
+    def _train_and_cache(
         self, fuel_type: FuelType, rows: list[TrainingRow]
     ) -> tuple[Pipeline, float]:
-        cached = self._cache.get(fuel_type)
-        if cached is not None:
-            model, r2, trained_at = cached
-            if (datetime.now(UTC) - trained_at).total_seconds() < _CACHE_TTL_SECONDS:
-                return model, r2
-
         model, r2 = _train(rows)
         self._cache[fuel_type] = (model, r2, datetime.now(UTC))
         return model, r2

@@ -82,7 +82,10 @@ export default defineConfig({
         ],
       },
       devOptions: {
-        enabled: true,
+        // SW disabled in dev: precache holds only offline.html (no index.html,
+        // Vite serves that live), so the navigateFallback route hijacks "/" and
+        // serves offline.html. Test the PWA via `vite preview` on a prod build.
+        enabled: false,
         type: "module",
         navigateFallback: "/index.html",
       },
