@@ -19,6 +19,7 @@ training-set sizes for full reproducibility.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -135,8 +136,21 @@ def ejecutar_entrenamiento(
     X_test = test_df[FEATURE_COLUMNS].to_numpy()
     y_test = test_df[TARGET_COLUMN].to_numpy()
 
+    # Label-encoded categoricals keep this matrix dense and narrow (n, 15) — no
+    # one-hot blow-up. Logged so the footprint is auditable next to the sparse
+    # 48h Ridge pipeline (see prediction_service._describe_design_matrix).
+    logger.info(
+        "Design matrix: dense shape=%s dtype=%s ~%.1f MB (train) / ~%.1f MB (test)",
+        X_train.shape,
+        X_train.dtype,
+        X_train.nbytes / 1e6,
+        X_test.nbytes / 1e6,
+    )
+
     model: RandomForestRegressor = RandomForestRegressor(**HYPERPARAMETERS)
+    started = time.perf_counter()
     model.fit(X_train, y_train)
+    logger.info("Training duration: %.1fs", time.perf_counter() - started)
 
     y_pred = model.predict(X_test)
     mae = float(mean_absolute_error(y_test, y_pred))

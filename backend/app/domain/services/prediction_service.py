@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import dataclasses
+import logging
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import Ridge
@@ -15,6 +18,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from app.domain.entities.fuel_type import FuelType
+
+logger = logging.getLogger(__name__)
 
 MIN_SAMPLES: int = 30
 _CACHE_TTL_SECONDS: int = 6 * 3600
@@ -134,9 +139,19 @@ def _train(rows: list[TrainingRow]) -> tuple[Pipeline, float]:
     X = df[["hour", "day_of_week", "brand", "province"]]
     y = df["price"]
 
+    # brand/province are high-cardinality free-text (thousands of distinct brands
+    # nationwide), so a *dense* one-hot explodes to (n_rows, ~3300) float64 — e.g.
+    # 80k rows ≈ 2 GiB. Keeping the encoder sparse (and float32) means the design
+    # matrix never materializes dense: Ridge consumes it sparse, StandardScaler
+    # only touches the 2 numeric columns, and ColumnTransformer's default
+    # sparse_threshold (0.3) preserves the sparse stack rather than coercing it.
     preprocessor = ColumnTransformer([
         ("num", StandardScaler(), ["hour", "day_of_week"]),
-        ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), ["brand", "province"]),
+        (
+            "cat",
+            OneHotEncoder(handle_unknown="ignore", sparse_output=True, dtype=np.float32),
+            ["brand", "province"],
+        ),
     ])
     pipeline = Pipeline([("prep", preprocessor), ("reg", Ridge(alpha=1.0))])
 
@@ -145,6 +160,7 @@ def _train(rows: list[TrainingRow]) -> tuple[Pipeline, float]:
     # confidence shown to users. The returned model is still fit on all rows;
     # cross_val_score clones internally and does not fit `pipeline` itself.
     n_splits = min(5, len(df))
+    started = time.perf_counter()
     r2 = (
         float(cross_val_score(pipeline, X, y, cv=n_splits, scoring="r2").mean())
         if n_splits >= 2
@@ -152,7 +168,40 @@ def _train(rows: list[TrainingRow]) -> tuple[Pipeline, float]:
     )
 
     pipeline.fit(X, y)
+    elapsed = time.perf_counter() - started
+
+    design = pipeline.named_steps["prep"].transform(X)
+    logger.info(
+        "48h Ridge trained — rows=%d cv_folds=%d %s fit+cv=%.2fs",
+        len(df),
+        n_splits,
+        _describe_design_matrix(design),
+        elapsed,
+    )
     return pipeline, r2
+
+
+def _describe_design_matrix(matrix: Any) -> str:
+    """One-line description of the transformed design matrix, for logging.
+
+    Reports sparse-vs-dense, shape, dtype and an estimated footprint next to the
+    dense-equivalent it avoids — the guardrail proving the OneHotEncoder output
+    stays sparse instead of allocating the ~2 GiB dense block it used to.
+    Duck-types the sparse check (``nnz``) so no ``scipy`` import is needed.
+    """
+    n_rows, n_cols = matrix.shape
+    itemsize = int(matrix.dtype.itemsize)
+    dense_mb = n_rows * n_cols * itemsize / 1e6
+    if hasattr(matrix, "nnz"):  # scipy sparse matrix
+        nnz = int(matrix.nnz)
+        # CSR-style footprint: values + 4-byte column index per nonzero, plus the
+        # row-pointer array (4 bytes per row + 1).
+        actual_mb = (nnz * itemsize + nnz * 4 + (n_rows + 1) * 4) / 1e6
+        return (
+            f"design=sparse shape=({n_rows}, {n_cols}) dtype={matrix.dtype} "
+            f"nnz={nnz} ~{actual_mb:.1f}MB (dense would be ~{dense_mb:.0f}MB)"
+        )
+    return f"design=dense shape=({n_rows}, {n_cols}) dtype={matrix.dtype} ~{dense_mb:.1f}MB"
 
 
 def _make_advice(change_pct: float) -> str:
