@@ -28,8 +28,9 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,6 +40,7 @@ from app.domain.entities.fuel_type import FuelType
 from app.ml.data.fuel_type_mapping import FUEL_TYPE_TO_ID
 from app.ml.data.holidays import is_festivo
 from app.ml.inference.model_loader import get_modelo
+from app.ml.training.entrenar import FEATURE_COLUMNS
 from app.services.geopy_distance_service import calcular_distancia_geodesica
 from app.services.historical_features_service import (
     comarca_for_municipio,
@@ -47,12 +49,33 @@ from app.services.historical_features_service import (
     municipio_mean_price_window,
 )
 
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
 log = logging.getLogger(__name__)
 
 _RF_MODEL_LABEL = "recommendation_rf"
 
 _ALZIRA: tuple[float, float] = (39.1496, -0.4373)
 _TREND_WINDOW_DAYS: int = 30
+
+# Canonical feature order, imported from the trainer so the inference vector can
+# never drift from FEATURE_COLUMNS. The XAI layer reuses these names verbatim.
+RECOMMENDATION_FEATURE_NAMES: list[str] = list(FEATURE_COLUMNS)
+
+
+@dataclass(frozen=True)
+class RecommendationFeatures:
+    """The exact model-input vector for one recommendation, plus its column names.
+
+    Built once per request and shared between the verdict path and the XAI
+    explainer so both operate on an identical (1, 15) vector — no duplicate DB
+    work and no possibility of train/serve/explain skew.
+    """
+
+    vector: NDArray[np.float64]
+    names: list[str]
+    comarca: str
 
 
 def _encode(le: Any, value: str) -> int:
@@ -63,8 +86,32 @@ def _encode(le: Any, value: str) -> int:
     return 0
 
 
-async def generar_recomendacion(
+def derivar_veredicto(
+    precio_predicho: float, precio_actual: float
+) -> tuple[str, float, str]:
+    """Map predicted vs current price to (veredicto, variacion_pct, advice).
+
+    Single source of truth for the refuel-now-or-wait decision, shared by the
+    recommendation endpoint and the XAI explanation endpoint so the verdict can
+    never diverge between the two surfaces.
+    """
+    variacion_pct = round((precio_predicho - precio_actual) / precio_actual * 100, 2)
+    if precio_predicho > precio_actual:
+        return (
+            "REPOSTA AHORA",
+            variacion_pct,
+            f"Reposta ahora, el precio subirá un {abs(variacion_pct):.1f}% la próxima semana",
+        )
+    return (
+        "ESPERA",
+        variacion_pct,
+        f"Espera, el precio bajará un {abs(variacion_pct):.1f}% la próxima semana",
+    )
+
+
+async def construir_features(
     session: AsyncSession,
+    artifact: dict[str, Any],
     lat: float,
     lon: float,
     fuel_type: FuelType,
@@ -73,22 +120,15 @@ async def generar_recomendacion(
     precio_actual: float,
     station_lat: float | None = None,
     station_lon: float | None = None,
-) -> dict[str, Any]:
-    """Predict next-week price and return a refuel-now-or-wait verdict.
+) -> RecommendationFeatures:
+    """Build the (1, 15) model-input vector for one recommendation request.
 
     The comarca is resolved server-side from ``municipio`` via the authoritative
     ``municipio → comarca`` map; the optional ``comarca`` argument is only a
     fallback for municipios outside that map. This keeps the comarca-based
     features (``comarca_enc``, ``precio_vs_media_comarca``) aligned with what the
     model saw at training time instead of degrading to a client placeholder.
-
-    Raises RuntimeError if the model is not loaded (caller must convert to 503).
     """
-    artifact = get_modelo()
-    if artifact is None:
-        raise RuntimeError("ML model is not loaded")
-
-    model = artifact["model"]
     le_municipio = artifact["label_encoder_municipio"]
     le_comarca = artifact["label_encoder_comarca"]
 
@@ -175,6 +215,39 @@ async def generar_recomendacion(
         ]],
         dtype=float,
     )
+    return RecommendationFeatures(
+        vector=features, names=RECOMMENDATION_FEATURE_NAMES, comarca=comarca
+    )
+
+
+async def generar_recomendacion(
+    session: AsyncSession,
+    lat: float,
+    lon: float,
+    fuel_type: FuelType,
+    municipio: str,
+    comarca: str | None,
+    precio_actual: float,
+    station_lat: float | None = None,
+    station_lon: float | None = None,
+) -> dict[str, Any]:
+    """Predict next-week price and return a refuel-now-or-wait verdict.
+
+    Builds the feature vector via :func:`construir_features` (the single source
+    of truth for the inference vector) and evaluates the trained model.
+
+    Raises RuntimeError if the model is not loaded (caller must convert to 503).
+    """
+    artifact = get_modelo()
+    if artifact is None:
+        raise RuntimeError("ML model is not loaded")
+
+    model = artifact["model"]
+    feats = await construir_features(
+        session, artifact, lat, lon, fuel_type, municipio, comarca,
+        precio_actual, station_lat, station_lon,
+    )
+    features = feats.vector
 
     _inference_start = time.perf_counter()
     try:
@@ -187,20 +260,7 @@ async def generar_recomendacion(
             time.perf_counter() - _inference_start
         )
     ml_inference_total.labels(model=_RF_MODEL_LABEL, result="success").inc()
-    variacion_pct = round((precio_predicho - precio_actual) / precio_actual * 100, 2)
-
-    if precio_predicho > precio_actual:
-        veredicto = "REPOSTA AHORA"
-        advice = (
-            f"Reposta ahora, el precio subirá un {abs(variacion_pct):.1f}%"
-            " la próxima semana"
-        )
-    else:
-        veredicto = "ESPERA"
-        advice = (
-            f"Espera, el precio bajará un {abs(variacion_pct):.1f}%"
-            " la próxima semana"
-        )
+    veredicto, variacion_pct, advice = derivar_veredicto(precio_predicho, precio_actual)
 
     log.info(
         "recomendacion: fuel=%s lat=%.4f lon=%.4f precio_actual=%.3f predicho=%.3f "

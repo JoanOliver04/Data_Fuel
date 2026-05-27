@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     smart_advice,
     stations,
     vehicle_profiles,
+    xai,
 )
 
 api_router = APIRouter()
@@ -22,5 +23,6 @@ api_router.include_router(predictions.router)
 api_router.include_router(smart_advice.router)
 api_router.include_router(vehicle_profiles.router)
 api_router.include_router(ai.router)
+api_router.include_router(xai.router)
 api_router.include_router(analytics_router)
 api_router.include_router(alerts_router)

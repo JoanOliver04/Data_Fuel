@@ -164,6 +164,9 @@ class Settings(BaseSettings):
     geocoding_rate_limit: str = "10/minute"
     predictions_rate_limit: str = "30/minute"
     ai_rate_limit: str = "20/minute"
+    # Explainable-AI endpoints. The explain endpoint runs SHAP (~100 ms CPU), so
+    # it is throttled a touch tighter than plain predictions.
+    xai_rate_limit: str = "20/minute"
 
     # ─── AI assistant (LLM) ───────────────────────────────
     # The conversational layer enriches existing deterministic explanations. It
