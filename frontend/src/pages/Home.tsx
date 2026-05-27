@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { AiAdviceCard } from "@/features/ai-recommendation/components/AiAdviceCard";
 import { AiRecommendationButton } from "@/features/ai-recommendation/components/AiRecommendationButton";
 import type { AiRecommendationResponse } from "@/features/ai-recommendation/types";
+import { AiExplainabilityCard } from "@/features/xai/components/AiExplainabilityCard";
+import type { ExplainRecommendationRequest } from "@/features/xai/types";
 import { HealthBadge } from "@/features/health/HealthBadge";
 import { MapView, type MapBBox } from "@/features/map/MapView";
 import { InstallPrompt } from "@/features/pwa/InstallPrompt";
@@ -198,6 +200,24 @@ export function Home() {
 
   const aiStation = processedData?.[0] ?? null;
 
+  // Params for the XAI explanation, derived from the same station + settings the
+  // recommendation used. Non-null only once a recommendation has been fetched,
+  // so the explain endpoint fires exactly once per "Recomendación IA" click.
+  const xaiParams = useMemo<ExplainRecommendationRequest | null>(() => {
+    if (aiResult === null || aiStation === null || userLat === null || userLon === null) {
+      return null;
+    }
+    return {
+      lat: userLat,
+      lon: userLon,
+      fuel_type: preferredFuel,
+      municipio: aiStation.municipality,
+      station_lat: aiStation.latitude,
+      station_lon: aiStation.longitude,
+      precio_actual: aiStation.price_per_liter,
+    };
+  }, [aiResult, aiStation, userLat, userLon, preferredFuel]);
+
   const handleSearchArea = useCallback((bbox: MapBBox) => {
     setBoundsBBox(bbox);
   }, []);
@@ -287,6 +307,11 @@ export function Home() {
                   <AiAdviceCard response={aiResult} onDismiss={() => setAiResult(null)} />
                 </div>
               )}
+              {xaiParams && (
+                <div className="shrink-0 px-4 pt-2">
+                  <AiExplainabilityCard params={xaiParams} />
+                </div>
+              )}
               {!hasVehicleProfile && (
                 <div className="shrink-0 px-4 pt-2">
                   <VehicleProfileBanner />
@@ -372,6 +397,11 @@ export function Home() {
               {aiResult && (
                 <div className="px-4 pt-2">
                   <AiAdviceCard response={aiResult} onDismiss={() => setAiResult(null)} />
+                </div>
+              )}
+              {xaiParams && (
+                <div className="px-4 pt-2">
+                  <AiExplainabilityCard params={xaiParams} />
                 </div>
               )}
               {!hasVehicleProfile && (
