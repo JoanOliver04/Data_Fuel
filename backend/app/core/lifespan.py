@@ -26,7 +26,8 @@ from app.infrastructure.database.models import (  # noqa: F401
     TrainingRunORM,
     VehicleProfileORM,
 )
-from app.ml.inference.model_loader import load_modelo
+from app.ml.inference.model_loader import get_modelo, load_modelo
+from app.ml.xai import shap_explainer
 from app.services.sync_service import SyncService
 
 log = logging.getLogger(__name__)
@@ -71,6 +72,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     app.state.prediction_service = PredictionService()
     load_modelo()
+
+    # Pre-build the SHAP TreeExplainer so the first /xai request pays no build
+    # cost. Best-effort and non-fatal: a missing model or missing `shap`
+    # dependency simply leaves the explainer cold (lazy build / graceful 503).
+    _artifact = get_modelo()
+    if _artifact is not None and shap_explainer.is_available():
+        try:
+            if shap_explainer.warm(_artifact["model"]):
+                log.info("SHAP explainer warmed at startup")
+        except Exception:
+            log.exception("SHAP explainer warm-up failed — will build lazily on first request")
 
     if settings.sync_on_startup:
         log.info("Running initial MITECO sync on startup")

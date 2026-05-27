@@ -40,6 +40,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Explainable AI: SHAP powers the local TreeExplainer. Kept optional so a base
+# install stays lean; the XAI layer degrades gracefully when it is absent.
+xai = [
+    "shap>=0.44",
+]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
@@ -49,6 +54,8 @@ dev = [
     "mypy>=1.13",
     "pre-commit>=4.0",
     "types-python-dateutil",
+    # XAI tests exercise the real shap.TreeExplainer, so it is part of the dev set.
+    "shap>=0.44",
 ]
 
 [project.urls]
@@ -113,6 +120,8 @@ module = [
     "geopy.*",
     "joblib",
     "joblib.*",
+    "shap",
+    "shap.*",
 ]
 ignore_missing_imports = true
 

@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/SQLAlchemy-2.0%20async-D71F00" alt="SQLAlchemy 2.0" />
   <img src="https://img.shields.io/badge/scikit--learn-1.5-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn" />
-  <img src="https://img.shields.io/badge/tests-550%20passing-brightgreen" alt="550 tests passing" />
+  <img src="https://img.shields.io/badge/tests-632%20passing-brightgreen" alt="632 tests passing" />
   <img src="https://img.shields.io/badge/coverage-85%25-brightgreen" alt="Coverage 85%" />
   <img src="https://img.shields.io/badge/mypy-strict-blue" alt="mypy strict" />
   <img src="https://img.shields.io/badge/license-PolyForm%20NC%201.0-lightgrey" alt="License" />
@@ -47,7 +47,7 @@ On top of this, a **scikit-learn Ridge regression** predicts the 48-hour price d
 - **Clean Architecture backend** — strict dependency direction (`domain → services → repositories → infrastructure → API`). No ORM leaks into domain, no HTTP into business logic.
 - **Async end-to-end** — FastAPI + SQLAlchemy 2.0 async + `httpx.AsyncClient`. Sync job runs on APScheduler without blocking the event loop.
 - **Typed end-to-end** — `mypy --strict` on the backend, `tsc --strict` + `exactOptionalPropertyTypes` + `noUncheckedIndexedAccess` on the frontend. Zero `any` leaking into public signatures.
-- **456 backend + 94 frontend tests, 85% coverage** — unit tests for domain logic, integration tests hitting a real in-memory SQLite via ASGI transport, repo-level tests for SQL behaviour. Frontend tests cover components, hooks, and API clients.
+- **523 backend + 109 frontend tests, 85% coverage** — unit tests for domain logic, integration tests hitting a real in-memory SQLite via ASGI transport, repo-level tests for SQL behaviour. Frontend tests cover components, hooks, and API clients.
 - **Real data source** — the official Spanish MITECO carburantes API (not web scraping), refreshed hourly via APScheduler with idempotent upserts.
 - **ML pipeline** — a `Pipeline` with `ColumnTransformer` (numerical scaling + one-hot encoding) + `Ridge` regression, trained on 30 days of price history with 6-hour per-fuel-type caching.
 - **Performance pass** — SQL-side bbox/radius prefilter (skips ~10 k row hydration per call), top-N pre-rank by haversine before the ORS Matrix call (~5× cheaper quota), async-safe TTL cache on `/recommendations` (cache hits return in <1 ms), GZip middleware (~70 % smaller JSON), Vite manual chunks + lazy-loaded routes and Recharts.
@@ -218,6 +218,8 @@ Base URL (dev): `http://localhost:8000/api/v1`
 | `GET` | `/stations/{id}/price-history/{fuel_type}?days=30` | Price history for charting |
 | `GET` | `/recommendations?lat&lon&liters&fuel_type&...` | Ranked stations by total cost |
 | `GET` | `/predictions/{station_id}/{fuel_type}` | 48-hour price prediction + advice |
+| `GET` | `/xai/global-feature-importance` | Global Random Forest feature importance + model metadata |
+| `POST` | `/xai/explain-recommendation` | Local SHAP explanation + reasoning for a recommendation |
 
 Full OpenAPI is available at `/docs` (Swagger UI) and `/redoc` when `DEBUG=true`.
 
@@ -577,12 +579,63 @@ The codebase is **prepared for a horizontal-scale migration**: when the persiste
 
 ---
 
+## Explainable AI (XAI)
+
+A binary verdict — **REPOSTA AHORA** / **ESPERA** — is only trustworthy if you can see *why*. Data Fuel ships a production-grade explainability layer over the Random Forest recommender that answers exactly that, for non-technical users and for a reviewer auditing the model alike. It is a **read-only observability layer** ([`app/ml/xai/`](backend/app/ml/xai/)): it never retrains, never touches the model or its feature schema, needs no GPU, and degrades gracefully — so it can never destabilise the recommendation pipeline. See [ADR 0009](docs/adr/0009-explainable-ai-layer.md).
+
+<!-- IMAGE: XAI panel — reasoning + SHAP impact list + global importance chart -->
+<p align="center">
+  <img src="docs/images/xai-explainability.png" alt="Explainable AI panel" width="420" />
+</p>
+
+### Why XAI matters (academically and in practice)
+
+Feature attribution turns a black-box ensemble into an auditable decision. **SHAP** (SHapley Additive exPlanations) is grounded in cooperative game theory: it is the *unique* attribution satisfying local accuracy, consistency and missingness, distributing the prediction across features as Shapley values. For a non-technical user this becomes "the price will drop because last week's price was falling and the municipality average is low"; for an examiner it is a defensible, mathematically exact account of the model's reasoning — not a post-hoc story.
+
+### What the layer exposes
+
+| Capability | How |
+|---|---|
+| **Global feature importance** | The trainer's impurity-based `feature_importances_`, normalized to percentages (Σ ≈ 100), sorted, cached per loaded model, enriched with human-readable labels. |
+| **Local SHAP explanation** | A process-singleton `shap.TreeExplainer` computes **exact, additive** per-feature contributions for a single prediction: `base_value + Σ impacts == prediction`. |
+| **Human-readable reasoning** | A deterministic, template-based engine (no LLM, no hallucination) turns the SHAP signs into a short, verdict-aligned paragraph. Locale-keyed (`es`, `en`) — multilingual-ready. |
+| **Confidence** | The model's honest time-split R² (see §4), surfaced as a 0–1 score. |
+
+### Interpreting the output
+
+- **Negative SHAP impact lowers** the predicted next-week price → rendered **green ↓** ("good for waiting").
+- **Positive SHAP impact raises** it → rendered **red ↑**.
+- `top_positive_factors` are the strongest price-**lowering** factors; `top_negative_factors` the strongest price-**raising** ones (each capped at 5). `feature_importance_local` is the complete signed attribution, ordered by magnitude — and by additivity its values plus `base_value` sum to the forecast.
+- Global importance answers "what does the model rely on overall?"; SHAP answers "why *this* recommendation?".
+
+### Endpoints
+
+```http
+GET  /api/v1/xai/global-feature-importance   → ordered importances + trained_at + R² + MAE
+POST /api/v1/xai/explain-recommendation       → { prediction, base_value, veredicto, confidence,
+                                                  reasoning, feature_importance_local,
+                                                  feature_importance_global, shap_available }
+```
+
+The explain endpoint accepts the **same payload** as `POST /predictions/recommendation` and reuses the exact inference vector and verdict logic (`construir_features` / `derivar_veredicto`), so the explanation can never drift from the recommendation it explains.
+
+### Frontend
+
+A premium [`features/xai/`](frontend/src/features/xai/) module renders the panel after a "Recomendación IA" click: **AiReasoningBlock** (verdict + confidence + reasoning), **ShapImpactList** (signed green/red impact bars), and a lazy-loaded **FeatureImportanceChart** (animated Recharts horizontal bars, top 10). The chart only pulls Recharts when expanded, keeping it off the initial bundle.
+
+### Engineering & performance
+
+- **`shap` is an optional dependency** (`pip install -e ".[xai]"`). Absent or failing, the explainer returns `None`, the endpoint still answers `200` with global importance + a fallback rationale and `shap_available: false`, and the recommender is unaffected.
+- **TreeSHAP**, not KernelSHAP: exact Shapley values for tree ensembles in polynomial time — **~40 ms** one-time explainer build, **~100 ms** per explanation on CPU (well under the 300 ms budget). The explainer is a singleton keyed by model identity (rebuilds on hot-reload), warmed in the lifespan, and the predict+SHAP compute runs in a worker thread. Rate-limited via `XAI_RATE_LIMIT` (default 20/min).
+
+---
+
 ## Testing & quality
 
 ### Backend
 
 ```bash
-pytest                   # 456 tests, 85% coverage (branch), enforced via --cov-fail-under=80
+pytest                   # 523 tests, 85% coverage (branch), enforced via --cov-fail-under=80
 ruff check app tests     # lint + import order (E, F, I, N, UP, B, A, C4, SIM, RUF)
 mypy app                 # strict mode, plugins=[pydantic.mypy]
 ```
@@ -595,7 +648,7 @@ Key choices:
 ### Frontend
 
 ```bash
-npm test        # vitest — 94 tests across 20 files
+npm test        # vitest — 109 tests across 24 files
 npm run lint    # eslint (max-warnings 0)
 npm run typecheck
 npm run build   # tsc -b && vite build
@@ -686,6 +739,7 @@ Post-roadmap hardening sweeps: **security** (rate limiting, docs gating, strict 
 - **Observability** — ✅ structured JSON logs, request/correlation tracing, Prometheus `/metrics`, and liveness/readiness/detail health endpoints are implemented (see [docs/observability.md](docs/observability.md)). Next: OpenTelemetry distributed traces and a shipped Grafana dashboard JSON.
 - **AI assistant** — ✅ conversational explanations of recommendations, predictions and trends via an isolated LLM layer (provider abstraction, anti-hallucination prompts, deterministic fallback, caching) at `/api/v1/ai/*` (see [docs/ai-assistant.md](docs/ai-assistant.md)). Next: the frontend AI UX (explanation cards, chat, trend panel) and streaming responses.
 - **Analytics** — ✅ fuel-market intelligence API at `/api/v1/analytics/*` (temporal trends, comarca + brand comparisons, geographic price density, deterministic executive insights with an optional LLM seam, short-TTL cache + metrics; see [docs/analytics.md](docs/analytics.md)). Next: the executive analytics dashboard frontend (charts, maps, KPI cards).
+- **Explainable AI** — ✅ SHAP-based explainability for the recommender at `/api/v1/xai/*` (global feature importance, exact additive local attributions via `TreeExplainer`, deterministic reasoning, premium frontend panel; see [Explainable AI (XAI)](#explainable-ai-xai) and [ADR 0009](docs/adr/0009-explainable-ai-layer.md)). Next: walk-forward `TimeSeriesSplit` confidence intervals and a SHAP beeswarm summary view.
 
 ---
 

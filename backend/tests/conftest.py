@@ -5,6 +5,7 @@ defined in `app.core.config` and `app.infrastructure.database.session`.
 """
 
 from collections.abc import AsyncGenerator, Generator
+from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -21,6 +22,7 @@ from app.infrastructure.database.models import (  # noqa: F401  (registers ORM m
     VehicleProfileORM,
 )
 from app.main import create_app
+from app.ml.xai import feature_importance_service, shap_explainer
 
 
 @pytest.fixture(autouse=True)
@@ -30,11 +32,55 @@ def _reset_caches() -> Generator[None, None, None]:
     db_session.get_engine.cache_clear()
     db_session.get_session_factory.cache_clear()
     recommendations_cache.reset()
+    feature_importance_service.reset_cache()
+    shap_explainer.reset()
     yield
     get_settings.cache_clear()
     db_session.get_engine.cache_clear()
     db_session.get_session_factory.cache_clear()
     recommendations_cache.reset()
+    feature_importance_service.reset_cache()
+    shap_explainer.reset()
+
+
+@pytest.fixture
+def rf_artifact() -> dict[str, Any]:
+    """A small but *real* Random Forest artifact the XAI layer can explain.
+
+    Trains a 10-tree forest on synthetic data shaped like the 15-column feature
+    schema, with the target driven by a couple of features so importances are
+    non-degenerate. SHAP TreeExplainer works on this exactly as on production.
+    """
+    import numpy as np
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.preprocessing import LabelEncoder
+
+    from app.ml.training.entrenar import FEATURE_COLUMNS
+
+    rng = np.random.default_rng(0)
+    n = 200
+    x = rng.normal(size=(n, len(FEATURE_COLUMNS)))
+    # Target leans on precio_semana_anterior (idx 4) and precio_medio_municipio (idx 8).
+    y = 1.5 + 0.5 * x[:, 4] + 0.3 * x[:, 8] + rng.normal(scale=0.05, size=n)
+    model = RandomForestRegressor(n_estimators=10, max_depth=5, random_state=0)
+    model.fit(x, y)
+
+    le_m = LabelEncoder().fit(["Valencia", "Alzira", "Gandia"])
+    le_c = LabelEncoder().fit(["Horta de València", "Ribera Alta", "La Safor"])
+    importances = {
+        f: float(i) for f, i in zip(FEATURE_COLUMNS, model.feature_importances_, strict=True)
+    }
+    return {
+        "model": model,
+        "label_encoder_municipio": le_m,
+        "label_encoder_comarca": le_c,
+        "features_names": list(FEATURE_COLUMNS),
+        "feature_importances": importances,
+        "r2": 0.85,
+        "mae": 0.04,
+        "trained_at": "2026-01-01T00:00:00+00:00",
+        "version": "test-rf-v1",
+    }
 
 
 @pytest.fixture
