@@ -1,25 +1,22 @@
 import "leaflet/dist/leaflet.css";
-import { divIcon, latLngBounds, type DivIcon, type LatLngExpression } from "leaflet";
+import { divIcon, latLngBounds, type LatLngExpression } from "leaflet";
 import { useEffect } from "react";
-import { CircleMarker, MapContainer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, useMap } from "react-leaflet";
 
 import { BaseTileLayer } from "@/features/map/components/BaseTileLayer";
+import { makeMarkerIcon } from "@/features/map/components/StationMarker";
 
 import type { RecommendationItem } from "./types";
 import { formatDrivingSummary } from "./utils";
 
-const RANK_BG = ["#f59e0b", "#94a3b8", "#b45309"];
-
-function makeIcon(rank: number): DivIcon {
-  const bg = RANK_BG[rank - 1] ?? "#3b82f6";
-  return divIcon({
-    html: `<div style="background:${bg};color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)">${rank}</div>`,
-    className: "",
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
-  });
-}
+// Reuse the same pulsing dot as MapView for visual consistency.
+const USER_LOCATION_ICON = divIcon({
+  html: `<div class="df-user-location" role="img" aria-label="Tu ubicación"><span class="df-user-location__pulse"></span><span class="df-user-location__dot"></span></div>`,
+  className: "",
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+  popupAnchor: [0, -14],
+});
 
 type Pos = [number, number];
 
@@ -51,18 +48,14 @@ export function StationMap({ items, userLat, userLon }: StationMapProps) {
     >
       <BaseTileLayer />
       <FitBounds positions={allPositions} />
-      <CircleMarker
-        center={userPos}
-        radius={10}
-        pathOptions={{ color: "#2563eb", fillColor: "#3b82f6", fillOpacity: 0.85, weight: 2 }}
-      >
+      <Marker position={userPos} icon={USER_LOCATION_ICON} keyboard={false}>
         <Popup>📍 Tu ubicación</Popup>
-      </CircleMarker>
+      </Marker>
       {items.map((item, i) => (
         <Marker
           key={item.station_id}
           position={[item.latitude, item.longitude]}
-          icon={makeIcon(i + 1)}
+          icon={makeMarkerIcon(i + 1, "normal")}
         >
           <Popup>
             <div style={{ minWidth: 160 }}>
