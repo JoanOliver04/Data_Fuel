@@ -81,7 +81,7 @@ interface StationPopupProps {
   item: RecommendationItem;
   rank: number;
   /** Savings in € versus the most expensive option in the current result set. */
-  savings?: number;
+  savings?: number | undefined;
   /** Called when user taps "Ver detalles" to scroll list to this station. */
   onViewDetails?: () => void;
 }
@@ -91,8 +91,6 @@ export function StationPopup({ item, rank, savings, onViewDetails }: StationPopu
   const isOpen = isStationOpenNow(item.schedule);
   const rankColor = RANK_COLORS[rank - 1] ?? "#3b82f6";
 
-  const hasDriving =
-    item.driving_distance_km != null || item.driving_duration_min != null;
   const distanceKm = item.driving_distance_km ?? item.distance_km;
   const hasEta = item.eta_minutes != null;
 

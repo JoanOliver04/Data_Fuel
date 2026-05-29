@@ -13,6 +13,13 @@ import { usePriceHistory } from "@/features/price-history/hooks";
 import { PredictionBadge } from "@/features/predictions/PredictionBadge";
 import { useSettingsStore } from "@/stores/settings.store";
 
+import { deriveStationInsights, type StationInsight } from "./insights";
+import {
+  BadgeRow,
+  InsightChips,
+  SavingsHighlight,
+  WhyRecommended,
+} from "./RecommendationInsights";
 import { RecommendationSkeleton } from "./RecommendationSkeleton";
 import type { RecommendationItem } from "./types";
 import { formatDrivingSummary, formatRealCostTooltip, formatTrafficDelay } from "./utils";
@@ -52,6 +59,7 @@ function BreakdownCell({ label, value }: { label: string; value: number }) {
 interface StationCardProps {
   item: RecommendationItem;
   rank: number;
+  insight: StationInsight;
   isSelected: boolean;
   onSelect: (id: number) => void;
   onHover: (id: number | null) => void;
@@ -60,6 +68,7 @@ interface StationCardProps {
 const StationCard = memo(function StationCard({
   item,
   rank,
+  insight,
   isSelected,
   onSelect,
   onHover,
@@ -94,9 +103,18 @@ const StationCard = memo(function StationCard({
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]",
         isSelected
           ? "border-primary/40 bg-primary/5 shadow-sm ring-2 ring-primary/15"
-          : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md hover:shadow-black/5",
+          : insight.isBest
+            ? "border-amber-300/60 bg-gradient-to-br from-amber-50/60 to-card shadow-md shadow-amber-500/5 hover:-translate-y-0.5 hover:shadow-lg dark:border-amber-400/25 dark:from-amber-950/20"
+            : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md hover:shadow-black/5",
       )}
     >
+      {/* ── Recommendation badges (status — top of hierarchy) ── */}
+      {insight.badges.length > 0 && (
+        <div className="mb-2.5">
+          <BadgeRow badges={insight.badges} />
+        </div>
+      )}
+
       {/* ── Top row: rank + info + price ── */}
       <div className="flex items-start gap-3">
         {/* Medal rank badge */}
@@ -142,6 +160,13 @@ const StationCard = memo(function StationCard({
           </TooltipProvider>
         </div>
       </div>
+
+      {/* ── Savings highlight (second in hierarchy) ── */}
+      {insight.savings != null && (
+        <div className="mt-2.5">
+          <SavingsHighlight amount={insight.savings} featured={insight.isBest} />
+        </div>
+      )}
 
       {/* ── Stats grid ── */}
       <div className="mt-3 grid grid-cols-3 divide-x divide-border rounded-xl border bg-muted/30 text-xs">
@@ -198,6 +223,13 @@ const StationCard = memo(function StationCard({
             </span>
           </div>
         </div>
+      )}
+
+      {/* ── Why this station? (best) / comparative chips (rest) ── */}
+      {insight.isBest ? (
+        <WhyRecommended reasons={insight.reasons} />
+      ) : (
+        <InsightChips insight={insight} />
       )}
 
       {/* ── Price history toggle ── */}
@@ -322,6 +354,10 @@ export function StationList({
     : items;
   const hasDrivingDistances = items.some((item) => item.driving_distance_km != null);
 
+  // Smart-recommendation signals derived from the full ranked set (badges,
+  // savings, rationale). Aligned by index with `displayed`.
+  const insights = deriveStationInsights(displayed);
+
   return (
     <div className="flex h-full flex-col">
       {/* List header */}
@@ -366,6 +402,7 @@ export function StationList({
               key={item.station_id}
               item={item}
               rank={i + 1}
+              insight={insights[i]!}
               isSelected={selectedStationId === item.station_id}
               onSelect={handleSelect}
               onHover={onStationHover}

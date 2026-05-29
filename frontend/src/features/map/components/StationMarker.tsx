@@ -50,7 +50,7 @@ interface StationMarkerProps {
   rank: number;
   isSelected: boolean;
   isHovered: boolean;
-  savings?: number;
+  savings?: number | undefined;
   onSelect: (id: number) => void;
 }
 
