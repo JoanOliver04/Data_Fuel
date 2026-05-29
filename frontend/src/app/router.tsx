@@ -2,6 +2,7 @@ import { Loader2 } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 
+import { BottomNav } from "@/components/BottomNav";
 import { Home } from "@/pages/Home";
 
 // Secondary routes load on navigation, keeping the initial bundle smaller.
@@ -25,32 +26,35 @@ function RouteFallback() {
 
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route
-        path="/settings"
-        element={
-          <Suspense fallback={<RouteFallback />}>
-            <Settings />
-          </Suspense>
-        }
-      />
-      <Route
-        path="/simulator"
-        element={
-          <Suspense fallback={<RouteFallback />}>
-            <Simulator />
-          </Suspense>
-        }
-      />
-      <Route
-        path="*"
-        element={
-          <Suspense fallback={<RouteFallback />}>
-            <NotFound />
-          </Suspense>
-        }
-      />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route
+          path="/settings"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <Settings />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/simulator"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <Simulator />
+            </Suspense>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <NotFound />
+            </Suspense>
+          }
+        />
+      </Routes>
+      <BottomNav />
+    </>
   );
 }

@@ -77,11 +77,11 @@ function SliderField({ label, value, min, max, step, display, onChange }: Slider
         onChange={(e) => onChange(Number(e.target.value))}
         className={cn(
           "h-2 w-full cursor-pointer appearance-none rounded-full",
-          "[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4",
+          "[&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5",
           "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:cursor-pointer",
           "[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary",
           "[&::-webkit-slider-thumb]:shadow-md",
-          "[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4",
+          "[&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5",
           "[&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full",
           "[&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-primary",
         )}
@@ -173,7 +173,7 @@ export function Simulator() {
   const savings = best && worst ? worst.simCost - best.simCost : 0;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    <div className="flex min-h-dvh flex-col bg-background pb-20 lg:pb-0">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex max-w-screen-xl items-center gap-3 px-4 py-3">
@@ -181,7 +181,7 @@ export function Simulator() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+              className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>

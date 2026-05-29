@@ -25,11 +25,10 @@ import type { SmartAdviceParams } from "@/features/smart-advice/types";
 import { VehicleProfileBanner } from "@/features/vehicle-profile/VehicleProfileBanner";
 import { useSettingsStore } from "@/stores/settings.store";
 import { useSearchStore } from "@/stores/search.store";
+import { useUiStore, type SnapPoint } from "@/stores/ui.store";
 import { cn } from "@/lib/utils";
 
 // ── Mobile bottom sheet ─────────────────────────────────────────────────────
-
-type SnapPoint = "peek" | "half" | "full";
 
 const SNAP_PX: Record<SnapPoint, number> = {
   peek: 88,
@@ -37,22 +36,29 @@ const SNAP_PX: Record<SnapPoint, number> = {
   full: 0.88,
 };
 
+// Height of the fixed bottom nav bar (matches h-14 = 56px).
+const NAV_HEIGHT = 56;
+
 interface BottomSheetProps {
   children: React.ReactNode;
+  snap: SnapPoint;
+  onSnapChange: (s: SnapPoint) => void;
 }
 
-function BottomSheet({ children }: BottomSheetProps) {
-  const [snap, setSnap] = useState<SnapPoint>("half");
+function BottomSheet({ children, snap, onSnapChange }: BottomSheetProps) {
   const [dragging, setDragging] = useState(false);
   const [dragDelta, setDragDelta] = useState(0);
   const startYRef = useRef(0);
+  const startTimeRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   function getSnapHeight(s: SnapPoint): number {
     const parent = containerRef.current?.parentElement?.clientHeight ?? window.innerHeight;
+    // Leave at least 20px gap above the sheet so it never clips the header.
+    const maxH = parent - NAV_HEIGHT - 20;
     if (s === "peek") return SNAP_PX.peek;
-    if (s === "half") return Math.round(parent * SNAP_PX.half);
-    return Math.round(parent * SNAP_PX.full);
+    if (s === "half") return Math.min(Math.round(parent * SNAP_PX.half), maxH);
+    return Math.min(Math.round(parent * SNAP_PX.full), maxH);
   }
 
   function currentHeight(): number {
@@ -61,6 +67,7 @@ function BottomSheet({ children }: BottomSheetProps) {
 
   function onTouchStart(e: React.TouchEvent) {
     startYRef.current = e.touches[0]?.clientY ?? 0;
+    startTimeRef.current = Date.now();
     setDragging(true);
   }
 
@@ -70,21 +77,35 @@ function BottomSheet({ children }: BottomSheetProps) {
     setDragDelta(-dy);
   }
 
-  function onTouchEnd() {
+  function onTouchEnd(e: React.TouchEvent) {
     setDragging(false);
-    const h = currentHeight();
-    const parent = containerRef.current?.parentElement?.clientHeight ?? window.innerHeight;
-    const peekH = SNAP_PX.peek;
-    const halfH = Math.round(parent * SNAP_PX.half);
-    const fullH = Math.round(parent * SNAP_PX.full);
+    const endY = e.changedTouches[0]?.clientY ?? startYRef.current;
+    const elapsed = Date.now() - startTimeRef.current;
+    // positive = finger moved up = sheet grew taller
+    const velocity = elapsed > 0 ? (startYRef.current - endY) / elapsed : 0;
 
-    const distances = [
-      { snap: "peek" as SnapPoint, d: Math.abs(h - peekH) },
-      { snap: "half" as SnapPoint, d: Math.abs(h - halfH) },
-      { snap: "full" as SnapPoint, d: Math.abs(h - fullH) },
-    ];
-    const nearest = distances.reduce((a, b) => (a.d < b.d ? a : b));
-    setSnap(nearest.snap);
+    const FLICK_VEL = 0.5; // px/ms (500 px/s)
+
+    let target: SnapPoint;
+    if (velocity > FLICK_VEL) {
+      target = "full";
+    } else if (velocity < -FLICK_VEL) {
+      target = "peek";
+    } else {
+      const h = currentHeight();
+      const parent = containerRef.current?.parentElement?.clientHeight ?? window.innerHeight;
+      const maxH = parent - NAV_HEIGHT - 20;
+      const peekH = SNAP_PX.peek;
+      const halfH = Math.min(Math.round(parent * SNAP_PX.half), maxH);
+      const fullH = Math.min(Math.round(parent * SNAP_PX.full), maxH);
+      const distances = [
+        { snap: "peek" as SnapPoint, d: Math.abs(h - peekH) },
+        { snap: "half" as SnapPoint, d: Math.abs(h - halfH) },
+        { snap: "full" as SnapPoint, d: Math.abs(h - fullH) },
+      ];
+      target = distances.reduce((a, b) => (a.d < b.d ? a : b)).snap;
+    }
+    onSnapChange(target);
     setDragDelta(0);
   }
 
@@ -94,23 +115,23 @@ function BottomSheet({ children }: BottomSheetProps) {
     <div
       ref={containerRef}
       className={cn(
-        "absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden rounded-t-3xl",
+        "absolute inset-x-0 z-30 flex flex-col overflow-hidden rounded-t-3xl",
         "border-t border-border bg-background shadow-2xl shadow-black/10 dark:shadow-black/40",
         !dragging && "transition-[height] duration-300 ease-out",
       )}
-      style={{ height }}
+      style={{ height, bottom: NAV_HEIGHT }}
     >
       {/* Drag handle */}
       <div
-        className="flex cursor-grab items-center justify-center py-3 active:cursor-grabbing"
+        className="flex cursor-grab items-center justify-center py-3.5 active:cursor-grabbing"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <div className="h-1 w-10 rounded-full bg-muted-foreground/20" />
+        <div className="h-1 w-10 rounded-full bg-muted-foreground/25" />
       </div>
 
-      <div className="flex-1 overflow-y-auto">{children}</div>
+      <div className="flex-1 overflow-y-auto overscroll-contain">{children}</div>
     </div>
   );
 }
@@ -142,6 +163,8 @@ export function Home() {
 
   const [boundsBBox, setBoundsBBox] = useState<MapBBox | null>(null);
   const [aiResult, setAiResult] = useState<AiRecommendationResponse | null>(null);
+  const snap = useUiStore((s) => s.snap);
+  const setSnap = useUiStore((s) => s.setSnap);
 
   useEffect(() => {
     setBoundsBBox(null);
@@ -238,17 +261,77 @@ export function Home() {
     setBoundsBBox(bbox);
   }, []);
 
+  // When user taps a station on the map, snap the sheet up so they can see it.
+  const handleStationSelect = useCallback(
+    (id: number | null) => {
+      setSelectedStationId(id);
+      if (id !== null && useUiStore.getState().snap === "peek") setSnap("half");
+    },
+    [setSelectedStationId, setSnap],
+  );
+
   const hasSearched = searchParams !== null;
   const displayedItems = processedData ?? [];
 
+  const sheetContent = (
+    <>
+      {smartAdviceParams && (
+        <div className="px-4 pt-3">
+          <SmartAdviceCard params={smartAdviceParams} />
+        </div>
+      )}
+      <div className="px-4 pt-2.5">
+        <OptimizationProfileSelector />
+      </div>
+      <div className="px-4 pt-2">
+        <OptimizationInsightCard items={processedData} />
+      </div>
+      {aiStation && (
+        <div className="px-4 pt-2">
+          <AiRecommendationButton
+            municipio={aiStation.municipality}
+            stationLat={aiStation.latitude}
+            stationLon={aiStation.longitude}
+            precioActual={aiStation.price_per_liter}
+            onResult={setAiResult}
+          />
+        </div>
+      )}
+      {aiResult && (
+        <div className="px-4 pt-2">
+          <AiAdviceCard response={aiResult} onDismiss={() => setAiResult(null)} />
+        </div>
+      )}
+      {xaiParams && (
+        <div className="px-4 pt-2">
+          <AiExplainabilityCard params={xaiParams} />
+        </div>
+      )}
+      {!hasVehicleProfile && (
+        <div className="px-4 pt-2">
+          <VehicleProfileBanner />
+        </div>
+      )}
+      <StationList
+        items={processedData}
+        isLoading={isLoading}
+        isError={isError}
+        hasSearched={hasSearched}
+        selectedStationId={selectedStationId}
+        onStationSelect={setSelectedStationId}
+        onStationHover={setHoveredStationId}
+      />
+    </>
+  );
+
   return (
-    <div className="flex h-dvh flex-col bg-background">
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <header className="z-40 shrink-0 border-b border-border bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto max-w-screen-xl space-y-2.5 px-4 pb-3 pt-3">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex shrink-0 items-center gap-2">
                 <span className="text-xl leading-none">⛽</span>
                 <h1 className="text-lg font-extrabold tracking-tight">
                   Data <span className="text-primary">Fuel</span>
@@ -257,13 +340,13 @@ export function Home() {
               <HealthBadge />
               <StandaloneBadge />
             </div>
-            <div className="flex items-center gap-0.5">
+            <div className="flex shrink-0 items-center gap-0.5">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
               >
                 {theme === "dark" ? (
                   <Sun className="h-4 w-4" />
@@ -276,7 +359,7 @@ export function Home() {
                   variant="ghost"
                   size="icon"
                   aria-label="Simulador de costes"
-                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                  className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
                 >
                   <Calculator className="h-4 w-4" />
                 </Button>
@@ -286,7 +369,7 @@ export function Home() {
                   variant="ghost"
                   size="icon"
                   aria-label="Ajustes"
-                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                  className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
                 >
                   <Settings className="h-4 w-4" />
                 </Button>
@@ -376,12 +459,13 @@ export function Home() {
               selectedStationId={selectedStationId}
               hoveredStationId={hoveredStationId}
               isLoading={isLoading}
-              onStationSelect={setSelectedStationId}
+              onStationSelect={handleStationSelect}
               onSearchArea={handleSearchArea}
+              paddingBottom={NAV_HEIGHT + SNAP_PX.peek}
               className="h-full w-full"
             />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
+            <div className="flex h-full flex-col items-center justify-center gap-5 px-6 pb-16 text-center lg:pb-0">
               <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-primary/10 text-5xl">
                 ⛽
               </div>
@@ -397,55 +481,10 @@ export function Home() {
             </div>
           )}
 
-          {/* Mobile bottom sheet */}
+          {/* Mobile bottom sheet — controlled by snap state from Home */}
           <div className="lg:hidden">
-            <BottomSheet>
-              {smartAdviceParams && (
-                <div className="px-4 pt-3">
-                  <SmartAdviceCard params={smartAdviceParams} />
-                </div>
-              )}
-              <div className="px-4 pt-2">
-                <OptimizationProfileSelector />
-              </div>
-              <div className="px-4 pt-2">
-                <OptimizationInsightCard items={processedData} />
-              </div>
-              {aiStation && (
-                <div className="px-4 pt-2">
-                  <AiRecommendationButton
-                    municipio={aiStation.municipality}
-                    stationLat={aiStation.latitude}
-                    stationLon={aiStation.longitude}
-                    precioActual={aiStation.price_per_liter}
-                    onResult={setAiResult}
-                  />
-                </div>
-              )}
-              {aiResult && (
-                <div className="px-4 pt-2">
-                  <AiAdviceCard response={aiResult} onDismiss={() => setAiResult(null)} />
-                </div>
-              )}
-              {xaiParams && (
-                <div className="px-4 pt-2">
-                  <AiExplainabilityCard params={xaiParams} />
-                </div>
-              )}
-              {!hasVehicleProfile && (
-                <div className="px-4 pt-2">
-                  <VehicleProfileBanner />
-                </div>
-              )}
-              <StationList
-                items={processedData}
-                isLoading={isLoading}
-                isError={isError}
-                hasSearched={hasSearched}
-                selectedStationId={selectedStationId}
-                onStationSelect={setSelectedStationId}
-                onStationHover={setHoveredStationId}
-              />
+            <BottomSheet snap={snap} onSnapChange={setSnap}>
+              {sheetContent}
             </BottomSheet>
           </div>
         </div>

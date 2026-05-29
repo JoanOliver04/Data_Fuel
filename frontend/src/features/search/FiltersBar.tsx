@@ -56,7 +56,7 @@ export function FiltersBar({ allBrands }: FiltersBarProps) {
               type="button"
               onClick={() => setRadius(opt.value)}
               className={cn(
-                "rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+                "min-h-[34px] rounded-full px-3 py-2 text-xs font-semibold transition-all duration-150",
                 radius === opt.value
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -77,7 +77,7 @@ export function FiltersBar({ allBrands }: FiltersBarProps) {
               type="button"
               onClick={() => setSortBy(opt.value)}
               className={cn(
-                "rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+                "min-h-[34px] rounded-full px-3 py-2 text-xs font-semibold transition-all duration-150",
                 sortBy === opt.value
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -95,7 +95,7 @@ export function FiltersBar({ allBrands }: FiltersBarProps) {
           type="button"
           onClick={() => setModalOpen(true)}
           className={cn(
-            "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+            "flex min-h-[34px] shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-all duration-150",
             activeFilterCount > 0
               ? "bg-primary text-primary-foreground shadow-sm"
               : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",

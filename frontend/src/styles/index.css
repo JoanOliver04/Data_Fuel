@@ -81,10 +81,14 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent overscroll bounce from exposing raw background on iOS */
+    overscroll-behavior: none;
   }
 
   body {
     @apply bg-background text-foreground;
+    /* Prevent horizontal overflow at any viewport width */
+    overflow-x: hidden;
   }
 
   /* Slim premium scrollbar */
@@ -114,6 +118,13 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Push Leaflet bottom controls (zoom, attribution) above the mobile peek sheet */
+@media (max-width: 1023px) {
+  .leaflet-bottom {
+    bottom: var(--lf-bottom, 0px);
   }
 }
 

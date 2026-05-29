@@ -2,7 +2,7 @@ import "leaflet/dist/leaflet.css";
 
 import { divIcon, type DivIcon, type LatLngBounds } from "leaflet";
 import { Flame, Loader2, MapPin, TrafficCone } from "lucide-react";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   CircleMarker,
   MapContainer,
@@ -225,6 +225,8 @@ interface MapViewProps {
   isLoading: boolean;
   onStationSelect: (id: number | null) => void;
   onSearchArea: (bbox: MapBBox) => void;
+  /** Bottom padding in px — used on mobile to push Leaflet controls above the peek sheet. */
+  paddingBottom?: number;
   className?: string;
 }
 
@@ -239,6 +241,7 @@ export function MapView({
   isLoading,
   onStationSelect,
   onSearchArea,
+  paddingBottom,
   className,
 }: MapViewProps) {
   const [pendingBounds, setPendingBounds] = useState<LatLngBounds | null>(null);
@@ -271,10 +274,10 @@ export function MapView({
     <div
       className={cn(
         "relative h-full w-full",
-        // Crosshair cue while placing a pin.
         pin.isActive && "[&_.leaflet-container]:cursor-crosshair",
         className,
       )}
+      style={paddingBottom !== undefined ? { "--lf-bottom": `${paddingBottom}px` } as CSSProperties : undefined}
     >
       <MapContainer
         center={userPos}

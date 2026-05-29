@@ -17,19 +17,16 @@ import { RecommendationSkeleton } from "./RecommendationSkeleton";
 import type { RecommendationItem } from "./types";
 import { formatDrivingSummary, formatRealCostTooltip, formatTrafficDelay } from "./utils";
 
-// Cards enter with a brief stagger; cap the cascade so a long list still
-// finishes settling quickly (and so far-down cards aren't held invisible).
 const STAGGER_STEP_MS = 35;
 const STAGGER_MAX_STEPS = 8;
 
-// Recharts (~300 KB) only loads after the user expands a card's history panel.
 const PriceHistoryChart = lazy(() =>
   import("@/features/price-history/PriceHistoryChart").then((m) => ({
     default: m.PriceHistoryChart,
   })),
 );
 
-// ── Rank badge helpers ───────────────────────────────────────────────────────
+// ── Rank badge ───────────────────────────────────────────────────────────────
 
 function rankBadgeClass(rank: number): string {
   if (rank === 1)
@@ -92,7 +89,7 @@ const StationCard = memo(function StationCard({
       onMouseLeave={() => onHover(null)}
       style={{ animationDelay: enterDelay }}
       className={cn(
-        "group cursor-pointer rounded-xl border p-3.5 transition-all duration-150",
+        "group cursor-pointer rounded-2xl border p-4 transition-all duration-150",
         "fill-mode-both motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]",
         isSelected
@@ -100,6 +97,7 @@ const StationCard = memo(function StationCard({
           : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md hover:shadow-black/5",
       )}
     >
+      {/* ── Top row: rank + info + price ── */}
       <div className="flex items-start gap-3">
         {/* Medal rank badge */}
         <span
@@ -114,25 +112,25 @@ const StationCard = memo(function StationCard({
         {/* Station info */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 leading-none">
-            <span className="truncate font-semibold">{item.brand}</span>
+            <span className="truncate text-[15px] font-semibold">{item.brand}</span>
             <PredictionBadge stationId={item.station_id} fuelType={item.fuel_type} />
             <FavoriteButton stationId={item.station_id} />
           </div>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          <p className="mt-1 truncate text-xs text-muted-foreground">
             {item.locality}, {item.province}
           </p>
-          <p className="truncate text-[11px] text-muted-foreground/60">{item.address}</p>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground/60">{item.address}</p>
         </div>
 
         {/* Total cost — right aligned */}
         <div className="shrink-0 text-right">
-          <p className="text-[18px] font-bold leading-none tabular-nums tracking-tight">
+          <p className="text-[19px] font-bold leading-none tabular-nums tracking-tight">
             {item.total_cost.toFixed(2)} €
           </p>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <p className="mt-0.5 flex cursor-default items-center justify-end gap-0.5 text-[10px] font-medium text-muted-foreground">
+                <p className="mt-1 flex cursor-default items-center justify-end gap-0.5 text-[10px] font-medium text-muted-foreground">
                   total
                   <Info className="h-3 w-3" aria-hidden />
                 </p>
@@ -145,24 +143,24 @@ const StationCard = memo(function StationCard({
         </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="mt-2.5 grid grid-cols-3 divide-x divide-border border-t pt-2.5 text-xs">
-        <div className="pr-2">
-          <p className="text-muted-foreground">Precio</p>
-          <p className="mt-0.5 font-semibold tabular-nums">
+      {/* ── Stats grid ── */}
+      <div className="mt-3 grid grid-cols-3 divide-x divide-border rounded-xl border bg-muted/30 text-xs">
+        <div className="px-2.5 py-2">
+          <p className="text-[10px] font-medium text-muted-foreground">Precio</p>
+          <p className="mt-1 font-semibold tabular-nums">
             {item.price_per_liter.toFixed(3)} €/L
           </p>
         </div>
-        <div className="px-2">
-          <p className="text-muted-foreground">Trayecto</p>
-          <p className="mt-0.5 flex items-center gap-1 font-semibold">
+        <div className="px-2.5 py-2">
+          <p className="text-[10px] font-medium text-muted-foreground">Trayecto</p>
+          <p className="mt-1 flex items-center gap-1 font-semibold">
             <Car className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
             {formatDrivingSummary(item)}
           </p>
           {trafficLabel && (
             <span
               className={cn(
-                "mt-1 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5",
+                "mt-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5",
                 "text-[10px] font-semibold tabular-nums",
                 "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
                 "motion-safe:animate-in motion-safe:fade-in",
@@ -174,24 +172,24 @@ const StationCard = memo(function StationCard({
             </span>
           )}
         </div>
-        <div className="pl-2">
-          <p className="text-muted-foreground">Desglose</p>
-          <p className="mt-0.5 font-semibold tabular-nums">
+        <div className="px-2.5 py-2">
+          <p className="text-[10px] font-medium text-muted-foreground">Desglose</p>
+          <p className="mt-1 font-semibold tabular-nums">
             {item.fuel_cost.toFixed(2)}+{item.travel_cost.toFixed(2)} €
           </p>
         </div>
       </div>
 
-      {/* Optimization breakdown — only when a profile re-ranked the results. */}
+      {/* ── Optimization breakdown ── */}
       {item.optimization_score != null && (
-        <div className="mt-2.5 rounded-lg border border-primary/15 bg-primary/[0.03] p-2.5">
+        <div className="mt-2.5 rounded-xl border border-primary/15 bg-primary/[0.03] p-3">
           <div className="grid grid-cols-4 gap-1 text-center text-[10px]">
             <BreakdownCell label="Comb." value={item.fuel_cost} />
             <BreakdownCell label="Trayecto" value={item.travel_cost} />
             <BreakdownCell label="Tiempo" value={item.time_cost ?? 0} />
             <BreakdownCell label="Tráfico" value={item.traffic_penalty ?? 0} />
           </div>
-          <div className="mt-2 flex items-center justify-between border-t border-primary/15 pt-1.5">
+          <div className="mt-2 flex items-center justify-between border-t border-primary/15 pt-2">
             <span className="text-[10px] font-medium text-muted-foreground">
               Puntuación
             </span>
@@ -202,8 +200,7 @@ const StationCard = memo(function StationCard({
         </div>
       )}
 
-      {/* Price history toggle — stops propagation so it doesn't toggle the
-          card's select state when the user just wants to peek at the chart. */}
+      {/* ── Price history toggle ── */}
       <button
         type="button"
         onClick={(e) => {
@@ -212,7 +209,7 @@ const StationCard = memo(function StationCard({
         }}
         aria-expanded={showChart}
         aria-label="Mostrar historial de precios"
-        className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="mt-3 flex min-h-[36px] w-full items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         {showChart ? (
           <ChevronUp className="h-3.5 w-3.5" />
@@ -224,7 +221,7 @@ const StationCard = memo(function StationCard({
 
       {showChart && (
         <div
-          className="mt-2 rounded-lg border bg-muted/30 p-3"
+          className="mt-1.5 rounded-xl border bg-muted/30 p-3"
           onClick={(e) => e.stopPropagation()}
         >
           <Suspense
@@ -291,7 +288,7 @@ export function StationList({
 
   if (isLoading) {
     return (
-      <div className="space-y-2.5 p-4 motion-safe:animate-in motion-safe:fade-in">
+      <div className="space-y-3 p-4 motion-safe:animate-in motion-safe:fade-in">
         <RecommendationSkeleton />
         <RecommendationSkeleton />
         <RecommendationSkeleton />
@@ -302,7 +299,7 @@ export function StationList({
 
   if (isError) {
     return (
-      <div className="px-4 py-8 text-center">
+      <div className="px-4 py-10 text-center">
         <p className="text-sm font-medium text-destructive">Error al obtener resultados.</p>
         <p className="mt-1 text-xs text-muted-foreground">
           Comprueba que el backend está disponible.
@@ -313,7 +310,7 @@ export function StationList({
 
   if (!items || items.length === 0) {
     return (
-      <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+      <p className="px-4 py-8 text-center text-sm text-muted-foreground">
         No se encontraron gasolineras. Prueba a mover el mapa o ajusta los filtros.
       </p>
     );
@@ -328,9 +325,9 @@ export function StationList({
   return (
     <div className="flex h-full flex-col">
       {/* List header */}
-      <div className="flex items-center justify-between border-b px-4 py-2.5">
+      <div className="flex items-center justify-between border-b px-4 py-3">
         <div>
-          <p className="text-sm font-medium">
+          <p className="text-sm font-semibold">
             {items.length} gasolinera{items.length !== 1 ? "s" : ""}
           </p>
           {hasDrivingDistances && (
@@ -343,14 +340,14 @@ export function StationList({
             onClick={() => setShowOnlyFavorites((p) => !p)}
             aria-pressed={showOnlyFavorites}
             className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150",
+              "flex min-h-[36px] items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-150",
               showOnlyFavorites
                 ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
                 : "bg-muted text-muted-foreground hover:bg-muted/80",
             )}
           >
             <Heart
-              className={cn("h-3 w-3", showOnlyFavorites && "fill-rose-500 text-rose-500")}
+              className={cn("h-3.5 w-3.5", showOnlyFavorites && "fill-rose-500 text-rose-500")}
             />
             Favoritos
           </button>
@@ -358,9 +355,9 @@ export function StationList({
       </div>
 
       {/* Scrollable list */}
-      <div className="flex-1 space-y-2 overflow-y-auto p-3">
+      <div className="flex-1 space-y-2.5 overflow-y-auto overscroll-contain p-3 pb-4">
         {displayed.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
+          <p className="py-6 text-center text-sm text-muted-foreground">
             Ninguna gasolinera favorita en los resultados.
           </p>
         ) : (

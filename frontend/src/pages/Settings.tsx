@@ -85,7 +85,7 @@ export function Settings() {
     createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="min-h-dvh bg-background pb-20 lg:pb-0">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
@@ -93,7 +93,7 @@ export function Settings() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+              className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
