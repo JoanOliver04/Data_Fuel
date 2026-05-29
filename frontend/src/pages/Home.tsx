@@ -20,6 +20,7 @@ import { StationList } from "@/features/recommendations/StationList";
 import type { RecommendationItem, RecommendationParams } from "@/features/recommendations/types";
 import { OptimizationProfileSelector } from "@/features/optimization/OptimizationProfileSelector";
 import { OptimizationInsightCard } from "@/features/optimization/OptimizationInsightCard";
+import { ComparisonCenter } from "@/features/comparison";
 import { FuelStrategyCard } from "@/features/fuel-strategy";
 import type { SmartAdviceParams } from "@/features/smart-advice/types";
 import { VehicleProfileBanner } from "@/features/vehicle-profile/VehicleProfileBanner";
@@ -517,6 +518,8 @@ export function Home() {
           </div>
         </div>
       </div>
+
+      <ComparisonCenter items={processedData} />
 
       <InstallPrompt />
     </div>

@@ -8,6 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CompareToggle } from "@/features/comparison";
 import { FavoriteButton } from "@/features/favorites/FavoriteButton";
 import { usePriceHistory } from "@/features/price-history/hooks";
 import { PredictionBadge } from "@/features/predictions/PredictionBadge";
@@ -139,6 +140,7 @@ const StationCard = memo(function StationCard({
             <span className="truncate text-[15px] font-semibold">{item.brand}</span>
             <PredictionBadge stationId={item.station_id} fuelType={item.fuel_type} />
             <FavoriteButton stationId={item.station_id} />
+            <CompareToggle stationId={item.station_id} />
           </div>
           <p className="mt-1 truncate text-xs text-muted-foreground">
             {item.locality}, {item.province}
