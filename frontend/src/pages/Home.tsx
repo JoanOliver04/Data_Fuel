@@ -47,10 +47,15 @@ interface BottomSheetProps {
 
 function BottomSheet({ children, snap, onSnapChange }: BottomSheetProps) {
   const [dragging, setDragging] = useState(false);
-  const [dragDelta, setDragDelta] = useState(0);
   const startYRef = useRef(0);
   const startTimeRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Drag state lives in refs so a gesture never re-renders the page behind the
+  // sheet — height is written straight to the DOM, one rAF-batched write/frame.
+  const draggingRef = useRef(false);
+  const heightRef = useRef(0);
+  const pendingYRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
 
   function getSnapHeight(s: SnapPoint): number {
     const parent = containerRef.current?.parentElement?.clientHeight ?? window.innerHeight;
@@ -61,24 +66,45 @@ function BottomSheet({ children, snap, onSnapChange }: BottomSheetProps) {
     return Math.min(Math.round(parent * SNAP_PX.full), maxH);
   }
 
-  function currentHeight(): number {
-    return Math.max(SNAP_PX.peek, getSnapHeight(snap) + dragDelta);
+  function maxHeight(): number {
+    const parent = containerRef.current?.parentElement?.clientHeight ?? window.innerHeight;
+    return parent - NAV_HEIGHT - 20;
+  }
+
+  function applyDragFrame() {
+    rafRef.current = null;
+    if (!draggingRef.current || !containerRef.current) return;
+    const dy = pendingYRef.current - startYRef.current; // up = negative dy = taller
+    const h = Math.min(maxHeight(), Math.max(SNAP_PX.peek, getSnapHeight(snap) - dy));
+    heightRef.current = h;
+    containerRef.current.style.height = `${h}px`;
   }
 
   function onTouchStart(e: React.TouchEvent) {
     startYRef.current = e.touches[0]?.clientY ?? 0;
     startTimeRef.current = Date.now();
-    setDragging(true);
+    heightRef.current = getSnapHeight(snap);
+    draggingRef.current = true;
+    setDragging(true); // one render to drop the height transition for the drag
   }
 
   function onTouchMove(e: React.TouchEvent) {
-    if (!dragging) return;
-    const dy = (e.touches[0]?.clientY ?? 0) - startYRef.current;
-    setDragDelta(-dy);
+    if (!draggingRef.current) return;
+    pendingYRef.current = e.touches[0]?.clientY ?? 0;
+    if (rafRef.current == null) rafRef.current = requestAnimationFrame(applyDragFrame);
   }
 
   function onTouchEnd(e: React.TouchEvent) {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    // Re-render restores the transition; React reclaims style.height → it
+    // animates smoothly from the dragged height to the chosen snap.
     setDragging(false);
+
     const endY = e.changedTouches[0]?.clientY ?? startYRef.current;
     const elapsed = Date.now() - startTimeRef.current;
     // positive = finger moved up = sheet grew taller
@@ -92,24 +118,24 @@ function BottomSheet({ children, snap, onSnapChange }: BottomSheetProps) {
     } else if (velocity < -FLICK_VEL) {
       target = "peek";
     } else {
-      const h = currentHeight();
-      const parent = containerRef.current?.parentElement?.clientHeight ?? window.innerHeight;
-      const maxH = parent - NAV_HEIGHT - 20;
-      const peekH = SNAP_PX.peek;
-      const halfH = Math.min(Math.round(parent * SNAP_PX.half), maxH);
-      const fullH = Math.min(Math.round(parent * SNAP_PX.full), maxH);
+      const h = heightRef.current;
       const distances = [
-        { snap: "peek" as SnapPoint, d: Math.abs(h - peekH) },
-        { snap: "half" as SnapPoint, d: Math.abs(h - halfH) },
-        { snap: "full" as SnapPoint, d: Math.abs(h - fullH) },
+        { snap: "peek" as SnapPoint, d: Math.abs(h - SNAP_PX.peek) },
+        { snap: "half" as SnapPoint, d: Math.abs(h - getSnapHeight("half")) },
+        { snap: "full" as SnapPoint, d: Math.abs(h - getSnapHeight("full")) },
       ];
       target = distances.reduce((a, b) => (a.d < b.d ? a : b)).snap;
     }
     onSnapChange(target);
-    setDragDelta(0);
   }
 
-  const height = currentHeight();
+  useEffect(() => {
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  const height = getSnapHeight(snap);
 
   return (
     <div
@@ -119,11 +145,11 @@ function BottomSheet({ children, snap, onSnapChange }: BottomSheetProps) {
         "border-t border-border bg-background shadow-elevation-xl",
         !dragging && "transition-[height] duration-300 ease-out",
       )}
-      style={{ height, bottom: NAV_HEIGHT }}
+      style={{ height, bottom: NAV_HEIGHT, willChange: dragging ? "height" : undefined }}
     >
       {/* Drag handle */}
       <div
-        className="flex cursor-grab items-center justify-center py-3.5 active:cursor-grabbing"
+        className="flex cursor-grab touch-none items-center justify-center py-3.5 active:cursor-grabbing"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
