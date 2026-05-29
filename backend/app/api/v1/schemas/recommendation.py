@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.domain.entities.fuel_type import FuelType
 from app.domain.entities.vehicle_profile import ConsumptionMode
 from app.domain.services.cost_calculator import StationCost
+from app.services.optimization import OptimizationProfile, OptimizedStation
 
 
 class RecommendationOut(BaseModel):
@@ -37,9 +38,33 @@ class RecommendationOut(BaseModel):
     consumption_mode: ConsumptionMode | None = None
     consumption_l_per_100km: float | None = None
 
+    # ── Traffic-aware optimization (additive, opt-in) ──────────────────────────
+    # All None unless an `optimization_profile` was requested. The score and its
+    # time/traffic components are euro-denominated; `eta_minutes` mirrors the
+    # driving duration used to price the time cost. Backwards compatible: legacy
+    # clients ignore these and ranking-by-total_cost is unchanged when omitted.
+    optimization_profile: OptimizationProfile | None = None
+    optimization_score: float | None = None
+    time_cost: float | None = None
+    traffic_penalty: float | None = None
+    eta_minutes: float | None = None
+
     @classmethod
     def from_station_cost(cls, sc: StationCost) -> RecommendationOut:
         return cls(**dataclasses.asdict(sc))
+
+    @classmethod
+    def from_optimized(cls, opt: OptimizedStation) -> RecommendationOut:
+        """Build from an optimized station: base cost fields + optimization fields."""
+        comp = opt.result.components
+        return cls(
+            **dataclasses.asdict(opt.station),
+            optimization_profile=opt.result.profile,
+            optimization_score=opt.result.score,
+            time_cost=comp.time_cost,
+            traffic_penalty=comp.traffic_penalty,
+            eta_minutes=comp.eta_minutes,
+        )
 
 
 # ── AI refuel-advice schemas ───────────────────────────────────────────────────
