@@ -10,11 +10,10 @@ vi.mock("react-leaflet", () => ({
     <div data-testid="map-container">{children}</div>
   ),
   TileLayer: () => null,
-  CircleMarker: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="user-marker">{children}</div>
-  ),
-  Marker: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="station-marker">{children}</div>
+  // The user-location marker is the only non-interactive one (keyboard={false});
+  // station markers are clickable. Use that to tell them apart in the mock.
+  Marker: ({ children, keyboard }: { children: React.ReactNode; keyboard?: boolean }) => (
+    <div data-testid={keyboard === false ? "user-marker" : "station-marker"}>{children}</div>
   ),
   Popup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   useMap: () => ({ fitBounds: vi.fn() }),
