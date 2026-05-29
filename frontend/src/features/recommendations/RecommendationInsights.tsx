@@ -1,5 +1,7 @@
 import {
+  Clock,
   Fuel,
+  Gauge,
   MapPin,
   Sparkles,
   TrafficCone,
@@ -14,6 +16,7 @@ import { memo } from "react";
 import { cn } from "@/lib/utils";
 
 import type { BadgeIcon, BadgeTone, RecommendationBadge, StationInsight } from "./insights";
+import type { TrafficLevel, TrafficStatus } from "./traffic";
 
 // ── Tone & icon maps ─────────────────────────────────────────────────────────
 
@@ -24,6 +27,7 @@ const TONE_CLASS: Record<BadgeTone, string> = {
   violet: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
   emerald: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
   amber: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  red: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
 };
 
 const ICON_MAP: Record<BadgeIcon, LucideIcon> = {
@@ -165,6 +169,85 @@ export const InsightChips = memo(function InsightChips({
           {c}
         </span>
       ))}
+    </div>
+  );
+});
+
+// ── ETA pill ─────────────────────────────────────────────────────────────────
+
+/**
+ * First-class ETA chip — driving time, the single most decision-relevant
+ * routing figure. `label` comes from `getEta(item)`.
+ */
+export const EtaPill = memo(function EtaPill({
+  label,
+  className,
+}: {
+  label: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5",
+        "text-[11px] font-semibold tabular-nums text-sky-700",
+        "dark:bg-sky-900/30 dark:text-sky-300",
+        className,
+      )}
+    >
+      <Clock className="h-2.5 w-2.5 shrink-0" aria-hidden />
+      {label}
+    </span>
+  );
+});
+
+// ── Traffic badge ────────────────────────────────────────────────────────────
+
+const TRAFFIC_TONE: Record<TrafficLevel, BadgeTone> = {
+  free: "emerald",
+  light: "green",
+  moderate: "amber",
+  heavy: "red",
+};
+
+/**
+ * Live-traffic status chip driven by `classifyTraffic(item)`. Accessible by
+ * colour *and* text (label never relies on hue alone). Render only when
+ * `classifyTraffic` returned a status — i.e. the provider had traffic data.
+ */
+export const TrafficBadge = memo(function TrafficBadge({
+  status,
+  className,
+}: {
+  status: TrafficStatus;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5",
+        "text-[10px] font-semibold tabular-nums",
+        "motion-safe:animate-in motion-safe:fade-in",
+        TONE_CLASS[TRAFFIC_TONE[status.level]],
+        className,
+      )}
+      title={status.delayLabel ? `${status.label} · ${status.delayLabel}` : status.label}
+    >
+      <TrafficCone className="h-2.5 w-2.5 shrink-0" aria-hidden />
+      {status.label}
+      {status.delayLabel && <span className="opacity-80">{status.delayLabel}</span>}
+    </span>
+  );
+});
+
+// ── Savings-vs-time tradeoff note ────────────────────────────────────────────
+
+/** Decision-oriented tradeoff line (e.g. "Ahorras 4,10 € por solo 3 min más"). */
+export const TradeoffNote = memo(function TradeoffNote({ text }: { text: string }) {
+  return (
+    <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+      <Gauge className="h-3 w-3 shrink-0" aria-hidden />
+      {text}
     </div>
   );
 });

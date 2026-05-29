@@ -1,5 +1,4 @@
 import {
-  Clock,
   ExternalLink,
   Fuel,
   MapPin,
@@ -12,11 +11,10 @@ import {
 
 import { cn } from "@/lib/utils";
 import { FavoriteButton } from "@/features/favorites/FavoriteButton";
+import { TrafficBadge } from "@/features/recommendations/RecommendationInsights";
+import { classifyTraffic } from "@/features/recommendations/traffic";
 import type { RecommendationItem } from "@/features/recommendations/types";
-import {
-  formatTrafficDelay,
-  isStationOpenNow,
-} from "@/features/recommendations/utils";
+import { isStationOpenNow } from "@/features/recommendations/utils";
 import { FUEL_LABELS } from "@/types/fuel";
 
 // ── Rank metadata ──────────────────────────────────────────────────────────
@@ -87,12 +85,11 @@ interface StationPopupProps {
 }
 
 export function StationPopup({ item, rank, savings, onViewDetails }: StationPopupProps) {
-  const trafficDelay = formatTrafficDelay(item);
+  const traffic = classifyTraffic(item);
   const isOpen = isStationOpenNow(item.schedule);
   const rankColor = RANK_COLORS[rank - 1] ?? "#3b82f6";
 
   const distanceKm = item.driving_distance_km ?? item.distance_km;
-  const hasEta = item.eta_minutes != null;
 
   return (
     <div className="df-station-popup w-[272px]">
@@ -200,19 +197,11 @@ export function StationPopup({ item, rank, savings, onViewDetails }: StationPopu
           </div>
         </div>
 
-        {/* ETA / traffic — only when data exists */}
-        {hasEta && (
+        {/* Live traffic — only when the routing provider returned it */}
+        {traffic && (
           <div className="flex items-center gap-2">
             <Timer className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="text-xs text-foreground tabular-nums">
-              {Math.round(item.eta_minutes!)} min ETA
-            </span>
-            {trafficDelay && (
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                <Clock className="h-2.5 w-2.5" />
-                {trafficDelay} tráfico
-              </span>
-            )}
+            <TrafficBadge status={traffic} />
           </div>
         )}
       </div>

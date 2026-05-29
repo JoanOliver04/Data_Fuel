@@ -1,4 +1,4 @@
-import { Car, ChevronDown, ChevronUp, Heart, Info, TrafficCone } from "lucide-react";
+import { Car, ChevronDown, ChevronUp, Heart, Info } from "lucide-react";
 import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -16,13 +16,17 @@ import { useSettingsStore } from "@/stores/settings.store";
 import { deriveStationInsights, type StationInsight } from "./insights";
 import {
   BadgeRow,
+  EtaPill,
   InsightChips,
   SavingsHighlight,
+  TradeoffNote,
+  TrafficBadge,
   WhyRecommended,
 } from "./RecommendationInsights";
 import { RecommendationSkeleton } from "./RecommendationSkeleton";
+import { classifyTraffic, getEta } from "./traffic";
 import type { RecommendationItem } from "./types";
-import { formatDrivingSummary, formatRealCostTooltip, formatTrafficDelay } from "./utils";
+import { formatRealCostTooltip } from "./utils";
 
 const STAGGER_STEP_MS = 35;
 const STAGGER_MAX_STEPS = 8;
@@ -78,7 +82,9 @@ const StationCard = memo(function StationCard({
   const [showChart, setShowChart] = useState(false);
   const { data: history } = usePriceHistory(item.station_id, item.fuel_type, showChart);
 
-  const trafficLabel = formatTrafficDelay(item);
+  const eta = getEta(item);
+  const traffic = classifyTraffic(item);
+  const distanceKm = item.driving_distance_km ?? item.distance_km;
   const enterDelay = `${Math.min(rank - 1, STAGGER_MAX_STEPS) * STAGGER_STEP_MS}ms`;
 
   useEffect(() => {
@@ -178,23 +184,15 @@ const StationCard = memo(function StationCard({
         </div>
         <div className="px-2.5 py-2">
           <p className="text-[10px] font-medium text-muted-foreground">Trayecto</p>
-          <p className="mt-1 flex items-center gap-1 font-semibold">
+          <p className="mt-1 flex items-center gap-1 font-semibold tabular-nums">
             <Car className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
-            {formatDrivingSummary(item)}
+            {distanceKm.toFixed(1)} km
           </p>
-          {trafficLabel && (
-            <span
-              className={cn(
-                "mt-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5",
-                "text-[10px] font-semibold tabular-nums",
-                "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-                "motion-safe:animate-in motion-safe:fade-in",
-              )}
-              title={`Retraso por tráfico: ${trafficLabel}`}
-            >
-              <TrafficCone className="h-2.5 w-2.5 shrink-0" aria-hidden />
-              {trafficLabel} tráfico
-            </span>
+          {(eta || (traffic && traffic.level !== "free")) && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {eta && <EtaPill label={eta.label} />}
+              {traffic && traffic.level !== "free" && <TrafficBadge status={traffic} />}
+            </div>
           )}
         </div>
         <div className="px-2.5 py-2">
@@ -225,11 +223,14 @@ const StationCard = memo(function StationCard({
         </div>
       )}
 
-      {/* ── Why this station? (best) / comparative chips (rest) ── */}
+      {/* ── Why this station? (best) / tradeoff + comparative chips (rest) ── */}
       {insight.isBest ? (
         <WhyRecommended reasons={insight.reasons} />
       ) : (
-        <InsightChips insight={insight} />
+        <>
+          {insight.tradeoff && <TradeoffNote text={insight.tradeoff} />}
+          <InsightChips insight={insight} />
+        </>
       )}
 
       {/* ── Price history toggle ── */}

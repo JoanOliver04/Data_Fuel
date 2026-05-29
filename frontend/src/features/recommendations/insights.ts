@@ -10,7 +10,7 @@ import type { RecommendationItem } from "./types";
 // AI) plug in by adding a `BadgeRule` to BADGE_RULES; no UI change required.
 
 /** Visual tone — mapped to concrete colours in the presentation layer. */
-export type BadgeTone = "gold" | "green" | "blue" | "violet" | "emerald" | "amber";
+export type BadgeTone = "gold" | "green" | "blue" | "violet" | "emerald" | "amber" | "red";
 
 /** Stable icon key — mapped to a lucide icon in the presentation layer. */
 export type BadgeIcon =
@@ -47,6 +47,12 @@ export interface StationInsight {
   savings: number | null;
   /** € below the set average total cost (`null` when ≤ 0.01). */
   savingsVsAvg: number | null;
+  /**
+   * Savings-vs-time tradeoff, e.g. "Ahorras 4,10 € por solo 3 min más" or
+   * "Ruta rápida y económica". `null` when there is no driving-time data or no
+   * meaningful tradeoff to surface. Translates the raw numbers into a decision.
+   */
+  tradeoff: string | null;
   /** Compact, human-readable "recommended because" bullets. */
   reasons: string[];
   /** True for the top-ranked station. */
@@ -63,6 +69,8 @@ interface InsightContext {
   minPrice: number;
   minDistanceKm: number;
   minDuration: number | null;
+  /** Total cost of the fastest (min-duration) station — the ETA reference. */
+  fastestTotal: number | null;
   hasTrafficData: boolean;
   someoneHasTraffic: boolean;
 }
@@ -169,6 +177,7 @@ function buildContext(items: RecommendationItem[], rank: number): InsightContext
   let minPrice = Infinity;
   let minDistanceKm = Infinity;
   let minDuration: number | null = null;
+  let fastestTotal: number | null = null;
   let hasTrafficData = false;
   let someoneHasTraffic = false;
 
@@ -180,7 +189,10 @@ function buildContext(items: RecommendationItem[], rank: number): InsightContext
     const km = drivingKm(it);
     if (km < minDistanceKm) minDistanceKm = km;
     if (it.driving_duration_min != null) {
-      minDuration = minDuration == null ? it.driving_duration_min : Math.min(minDuration, it.driving_duration_min);
+      if (minDuration == null || it.driving_duration_min < minDuration) {
+        minDuration = it.driving_duration_min;
+        fastestTotal = it.total_cost;
+      }
     }
     if (it.traffic_delay_seconds != null) {
       hasTrafficData = true;
@@ -197,6 +209,7 @@ function buildContext(items: RecommendationItem[], rank: number): InsightContext
     minPrice,
     minDistanceKm,
     minDuration,
+    fastestTotal,
     hasTrafficData,
     someoneHasTraffic,
   };
@@ -211,6 +224,7 @@ function buildReasons(
   item: RecommendationItem,
   ctx: InsightContext,
   savings: number | null,
+  tradeoff: string | null,
 ): string[] {
   const reasons: string[] = [];
   const isLowestTotal = item.total_cost <= ctx.minTotal + EPS;
@@ -236,11 +250,48 @@ function buildReasons(
     reasons.push("Bajo impacto del tráfico");
   }
 
-  if (savings != null && reasons.length < 4) {
+  // Prefer the richer savings-vs-time line when we have it; fall back to the
+  // plain savings figure otherwise.
+  if (tradeoff != null && reasons.length < 4) {
+    reasons.push(tradeoff);
+  } else if (savings != null && reasons.length < 4) {
     reasons.push(`Ahorras ${savings.toFixed(2)} € frente a la opción más cara`);
   }
 
   return reasons.slice(0, 4);
+}
+
+// Don't surface a savings-vs-time line for trivial amounts.
+const MIN_TRADEOFF_SAVINGS = 0.3;
+
+/**
+ * Turn the savings/ETA numbers into a single decision-oriented line, comparing
+ * against the fastest station in the set. `null` when there is no driving-time
+ * data or no compelling tradeoff to show.
+ */
+function buildTradeoff(item: RecommendationItem, ctx: InsightContext): string | null {
+  if (
+    ctx.count <= 1 ||
+    ctx.minDuration == null ||
+    ctx.fastestTotal == null ||
+    item.driving_duration_min == null
+  ) {
+    return null;
+  }
+
+  const extraMin = Math.round(item.driving_duration_min - ctx.minDuration);
+  const saveVsFastest = ctx.fastestTotal - item.total_cost;
+
+  if (extraMin <= 0) {
+    // This station is (one of) the fastest. Only celebrate it when it's also
+    // priced at or below the set average — otherwise it's just "fast".
+    return item.total_cost <= ctx.avgTotal + EPS ? "Ruta rápida y económica" : null;
+  }
+  if (saveVsFastest > MIN_TRADEOFF_SAVINGS) {
+    const min = extraMin === 1 ? "1 min" : `${extraMin} min`;
+    return `Ahorras ${saveVsFastest.toFixed(2)} € por solo ${min} más`;
+  }
+  return null;
 }
 
 /** Build the per-station insight for one item given a prepared context. */
@@ -260,12 +311,14 @@ function insightFrom(item: RecommendationItem, ctx: InsightContext): StationInsi
   const savings = ctx.count > 1 && rawSavings > 0.01 ? rawSavings : null;
   const rawVsAvg = ctx.avgTotal - item.total_cost;
   const savingsVsAvg = ctx.count > 1 && rawVsAvg > 0.01 ? rawVsAvg : null;
+  const tradeoff = buildTradeoff(item, ctx);
 
   return {
     badges,
     savings,
     savingsVsAvg,
-    reasons: buildReasons(item, ctx, savings),
+    tradeoff,
+    reasons: buildReasons(item, ctx, savings, tradeoff),
     isBest: ctx.rank === 1,
   };
 }

@@ -126,6 +126,32 @@ describe("deriveStationInsights", () => {
     expect(insights[0]!.badges.length).toBeLessThanOrEqual(3);
   });
 
+  it("frames a savings-vs-time tradeoff for a slower-but-cheaper station", () => {
+    // index 0 is fastest (5 min) but pricier; index 1 is 3 min slower yet cheaper.
+    const [fast, slowCheap] = deriveStationInsights([
+      item({ station_id: 1, total_cost: 55, driving_duration_min: 5 }),
+      item({ station_id: 2, total_cost: 50, driving_duration_min: 8 }),
+    ]);
+    expect(slowCheap!.tradeoff).toBe("Ahorras 5.00 € por solo 3 min más");
+    expect(fast!.tradeoff).toBeNull(); // fastest but above average → no spin
+  });
+
+  it("celebrates a station that is both fastest and at/under the average", () => {
+    const [winner] = deriveStationInsights([
+      item({ station_id: 1, total_cost: 40, driving_duration_min: 5 }),
+      item({ station_id: 2, total_cost: 60, driving_duration_min: 10 }),
+    ]);
+    expect(winner!.tradeoff).toBe("Ruta rápida y económica");
+  });
+
+  it("produces no tradeoff without driving-time data", () => {
+    const [a] = deriveStationInsights([
+      item({ station_id: 1, total_cost: 40 }),
+      item({ station_id: 2, total_cost: 60 }),
+    ]);
+    expect(a!.tradeoff).toBeNull();
+  });
+
   it("builds a human-readable rationale for the best station", () => {
     const [best] = deriveStationInsights([
       item({ station_id: 1, total_cost: 40 }),
