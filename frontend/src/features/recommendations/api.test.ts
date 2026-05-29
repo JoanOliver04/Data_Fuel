@@ -66,6 +66,22 @@ describe("fetchRecommendations", () => {
     expect(calledUrl).toContain("limit=5");
   });
 
+  it("includes the optimization profile when provided", async () => {
+    const { apiFetch } = await import("@/lib/api-client");
+    vi.mocked(apiFetch).mockResolvedValue([mockItem]);
+
+    await fetchRecommendations({
+      lat: 39.47,
+      lon: -0.376,
+      liters: 40,
+      fuel_type: "gasoil",
+      optimization_profile: "FASTEST",
+    });
+
+    const calledUrl = vi.mocked(apiFetch).mock.calls[0]![0] as string;
+    expect(calledUrl).toContain("optimization_profile=FASTEST");
+  });
+
   it("omits optional params when undefined", async () => {
     const { apiFetch } = await import("@/lib/api-client");
     vi.mocked(apiFetch).mockResolvedValue([]);

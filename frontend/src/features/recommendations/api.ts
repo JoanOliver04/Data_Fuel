@@ -18,6 +18,10 @@ const NUMERIC_FIELDS = [
 const OPTIONAL_NUMERIC_FIELDS = [
   "driving_distance_km",
   "driving_duration_min",
+  "optimization_score",
+  "time_cost",
+  "traffic_penalty",
+  "eta_minutes",
 ] as const satisfies readonly (keyof RecommendationItem)[];
 
 function normalize(item: RecommendationItem): RecommendationItem {
@@ -46,6 +50,9 @@ export async function fetchRecommendations(
     qs.set("vehicle_profile_id", String(params.vehicle_profile_id));
   } else if (params.km_cost !== undefined) {
     qs.set("km_cost", String(params.km_cost));
+  }
+  if (params.optimization_profile !== undefined) {
+    qs.set("optimization_profile", params.optimization_profile);
   }
   if (params.max_distance_km !== undefined) qs.set("max_distance_km", String(params.max_distance_km));
   if (params.north !== undefined) qs.set("north", String(params.north));
