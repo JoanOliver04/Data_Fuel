@@ -25,6 +25,7 @@ from app.infrastructure.database.models.vehicle_profile import VehicleProfileORM
 from app.infrastructure.database.session import get_async_session
 from app.repositories.station_repository import StationRepository
 from app.repositories.vehicle_profile_repository import VehicleProfileRepository
+from app.services.optimization import OptimizationProfile, optimize
 from app.services.routing import RouteLeg, get_routing_provider
 
 log = logging.getLogger(__name__)
@@ -56,6 +57,17 @@ async def get_recommendations(
     ] = None,
     vehicle_profile_id: Annotated[
         int | None, Query(description="Vehicle profile ID — overrides km_cost when set")
+    ] = None,
+    optimization_profile: Annotated[
+        OptimizationProfile | None,
+        Query(
+            description=(
+                "Multi-objective optimization profile. When set, results are "
+                "re-ranked by a weighted blend of fuel, distance, time and traffic "
+                "cost and the optimization_* fields are populated. Omit for the "
+                "legacy cheapest-total-cost ranking (backwards compatible)."
+            )
+        ),
     ] = None,
     max_distance_km: Annotated[
         float | None, Query(ge=0, description="Exclude stations beyond this distance")
@@ -92,6 +104,7 @@ async def get_recommendations(
     cache_key = _build_cache_key(
         lat, lon, liters, fuel_type, limit, km_cost,
         vehicle_profile_id, max_distance_km, north, south, east, west,
+        optimization_profile,
     )
     cached = await recommendations_cache.get(cache_key)
     if cached is not None:
@@ -184,7 +197,21 @@ async def get_recommendations(
         fuel_type,
         settings.distance_mode,
     )
-    result = [RecommendationOut.from_station_cost(sc) for sc in ranked]
+    if optimization_profile is None:
+        result = [RecommendationOut.from_station_cost(sc) for sc in ranked]
+    else:
+        optimized = optimize(
+            ranked,
+            optimization_profile,
+            time_cost_per_hour=settings.time_cost_per_hour,
+            traffic_penalty_factor=settings.traffic_penalty_factor,
+        )
+        log.info(
+            "recommendations: re-ranked %d stations under profile=%s",
+            len(optimized),
+            optimization_profile,
+        )
+        result = [RecommendationOut.from_optimized(opt) for opt in optimized]
     await recommendations_cache.set(cache_key, result)
     return result
 
@@ -202,6 +229,7 @@ def _build_cache_key(
     south: float | None,
     east: float | None,
     west: float | None,
+    optimization_profile: OptimizationProfile | None,
 ) -> tuple[Any, ...]:
     """Stable hashable key over every param that affects the response.
 
@@ -221,6 +249,7 @@ def _build_cache_key(
         vehicle_profile_id,
         None if max_distance_km is None else round(max_distance_km, 3),
         _q4(north), _q4(south), _q4(east), _q4(west),
+        optimization_profile.value if optimization_profile is not None else None,
     )
 
 

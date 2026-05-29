@@ -1,5 +1,6 @@
 import type { FuelType } from "@/types/fuel";
 import type { ConsumptionMode } from "@/features/vehicle-profile/types";
+import type { OptimizationProfile } from "@/features/optimization/types";
 
 export interface RecommendationItem {
   station_id: number;
@@ -24,6 +25,12 @@ export interface RecommendationItem {
   traffic_delay_seconds?: number | null;
   consumption_mode?: ConsumptionMode | null;
   consumption_l_per_100km?: number | null;
+  // Traffic-aware optimization (present only when a profile was requested).
+  optimization_profile?: OptimizationProfile | null;
+  optimization_score?: number | null;
+  time_cost?: number | null;
+  traffic_penalty?: number | null;
+  eta_minutes?: number | null;
 }
 
 export interface RecommendationParams {
@@ -40,4 +47,6 @@ export interface RecommendationParams {
   south?: number;
   east?: number;
   west?: number;
+  /** When set, the backend re-ranks by the multi-objective score. */
+  optimization_profile?: OptimizationProfile;
 }

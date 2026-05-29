@@ -18,6 +18,8 @@ import { useRecommendations } from "@/features/recommendations/hooks";
 import { isStationOpenNow } from "@/features/recommendations/utils";
 import { StationList } from "@/features/recommendations/StationList";
 import type { RecommendationItem, RecommendationParams } from "@/features/recommendations/types";
+import { OptimizationProfileSelector } from "@/features/optimization/OptimizationProfileSelector";
+import { OptimizationInsightCard } from "@/features/optimization/OptimizationInsightCard";
 import { SmartAdviceCard } from "@/features/smart-advice/SmartAdviceCard";
 import type { SmartAdviceParams } from "@/features/smart-advice/types";
 import { VehicleProfileBanner } from "@/features/vehicle-profile/VehicleProfileBanner";
@@ -116,8 +118,17 @@ function BottomSheet({ children }: BottomSheetProps) {
 // ── Home ─────────────────────────────────────────────────────────────────────
 
 export function Home() {
-  const { liters, kmCost, preferredFuel, userLat, userLon, theme, setTheme, activeVehicleProfileId } =
-    useSettingsStore();
+  const {
+    liters,
+    kmCost,
+    preferredFuel,
+    userLat,
+    userLon,
+    theme,
+    setTheme,
+    activeVehicleProfileId,
+    optimizationProfile,
+  } = useSettingsStore();
   const {
     radius,
     sortBy,
@@ -145,6 +156,7 @@ export function Home() {
       liters,
       fuel_type: preferredFuel,
       limit: 25,
+      optimization_profile: optimizationProfile,
     };
     if (activeVehicleProfileId !== null) {
       base.vehicle_profile_id = activeVehicleProfileId;
@@ -156,7 +168,7 @@ export function Home() {
     }
     if (radius !== undefined) base.max_distance_km = radius;
     return base;
-  }, [userLat, userLon, liters, preferredFuel, kmCost, activeVehicleProfileId, radius, boundsBBox]);
+  }, [userLat, userLon, liters, preferredFuel, kmCost, activeVehicleProfileId, radius, boundsBBox, optimizationProfile]);
 
   const { data, isLoading, isError } = useRecommendations(searchParams);
 
@@ -192,7 +204,11 @@ export function Home() {
     items.sort((a, b) => {
       if (sortBy === "price") return a.price_per_liter - b.price_per_liter;
       if (sortBy === "distance") return a.distance_km - b.distance_km;
-      return a.total_cost - b.total_cost;
+      // Default: honour the backend's multi-objective ranking when a profile
+      // populated optimization_score; otherwise fall back to total cost.
+      const aKey = a.optimization_score ?? a.total_cost;
+      const bKey = b.optimization_score ?? b.total_cost;
+      return aKey - bKey;
     });
 
     return items;
@@ -291,6 +307,12 @@ export function Home() {
               <div className="shrink-0 px-4 pt-4">
                 <SmartAdviceCard params={smartAdviceParams} />
               </div>
+              <div className="shrink-0 px-4 pt-2">
+                <OptimizationProfileSelector />
+              </div>
+              <div className="shrink-0 px-4 pt-2">
+                <OptimizationInsightCard items={processedData} />
+              </div>
               {aiStation && (
                 <div className="shrink-0 px-4 pt-2">
                   <AiRecommendationButton
@@ -383,6 +405,12 @@ export function Home() {
                   <SmartAdviceCard params={smartAdviceParams} />
                 </div>
               )}
+              <div className="px-4 pt-2">
+                <OptimizationProfileSelector />
+              </div>
+              <div className="px-4 pt-2">
+                <OptimizationInsightCard items={processedData} />
+              </div>
               {aiStation && (
                 <div className="px-4 pt-2">
                   <AiRecommendationButton

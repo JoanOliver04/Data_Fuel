@@ -88,6 +88,15 @@ class Settings(BaseSettings):
     # ─── Cost calculation ─────────────────────────────────
     default_km_cost: float = Field(default=0.13, ge=0.0)
 
+    # ─── Traffic-aware optimization ───────────────────────
+    # Monetary value of the driver's time. "Time has value": a longer ETA costs
+    # productivity / convenience, priced here at €/hour and converted to €/min
+    # inside the scoring engine. Default 15 €/h.
+    time_cost_per_hour: float = Field(default=15.0, ge=0.0)
+    # € charged per minute of traffic delay (vs free-flow) returned by TomTom.
+    # Lets the optimizer steer away from congested routes. Default 0.25 €/min.
+    traffic_penalty_factor: float = Field(default=0.25, ge=0.0)
+
     # ─── Distance calculation ─────────────────────────────
     distance_mode: str = Field(default="EUCLIDEAN")
     ors_api_key: str | None = None

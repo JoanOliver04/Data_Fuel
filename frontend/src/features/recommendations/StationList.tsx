@@ -39,6 +39,17 @@ function rankBadgeClass(rank: number): string {
   return "bg-primary";
 }
 
+// ── Optimization breakdown cell ──────────────────────────────────────────────
+
+function BreakdownCell({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <p className="text-muted-foreground">{label}</p>
+      <p className="mt-0.5 font-semibold tabular-nums">{value.toFixed(2)}</p>
+    </div>
+  );
+}
+
 // ── Station card ─────────────────────────────────────────────────────────────
 
 interface StationCardProps {
@@ -170,6 +181,26 @@ const StationCard = memo(function StationCard({
           </p>
         </div>
       </div>
+
+      {/* Optimization breakdown — only when a profile re-ranked the results. */}
+      {item.optimization_score != null && (
+        <div className="mt-2.5 rounded-lg border border-primary/15 bg-primary/[0.03] p-2.5">
+          <div className="grid grid-cols-4 gap-1 text-center text-[10px]">
+            <BreakdownCell label="Comb." value={item.fuel_cost} />
+            <BreakdownCell label="Trayecto" value={item.travel_cost} />
+            <BreakdownCell label="Tiempo" value={item.time_cost ?? 0} />
+            <BreakdownCell label="Tráfico" value={item.traffic_penalty ?? 0} />
+          </div>
+          <div className="mt-2 flex items-center justify-between border-t border-primary/15 pt-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground">
+              Puntuación
+            </span>
+            <span className="text-xs font-bold tabular-nums text-primary">
+              {item.optimization_score.toFixed(2)} €
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Price history toggle — stops propagation so it doesn't toggle the
           card's select state when the user just wants to peek at the chart. */}
