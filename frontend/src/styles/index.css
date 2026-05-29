@@ -6,6 +6,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     --radius: 0.75rem;
 
     /* Core — light */
@@ -36,37 +37,53 @@
     --border: 214 32% 90%;
     --input: 214 32% 90%;
     --ring: 221 83% 53%;
+
+    /* Elevation — soft, layered. Consumed via the shadow-elevation-* tokens. */
+    --shadow-sm: 0 1px 2px -1px hsl(220 40% 20% / 0.08), 0 1px 3px 0 hsl(220 40% 20% / 0.06);
+    --shadow-md: 0 2px 4px -2px hsl(220 40% 20% / 0.08), 0 6px 14px -4px hsl(220 40% 20% / 0.1);
+    --shadow-lg: 0 4px 8px -3px hsl(220 40% 20% / 0.1), 0 14px 30px -8px hsl(220 40% 20% / 0.14);
+    --shadow-xl: 0 8px 18px -6px hsl(220 40% 20% / 0.12), 0 28px 56px -16px hsl(220 40% 20% / 0.2);
   }
 
   .dark {
-    /* Core — deep navy */
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --card: 224 47% 7%;
-    --card-foreground: 213 31% 91%;
-    --popover: 224 47% 7%;
-    --popover-foreground: 213 31% 91%;
+    color-scheme: dark;
+
+    /* Core — graphite-navy. Deep, slightly desaturated for a premium neutral
+       feel with a layered surface ramp: background < card < popover. */
+    --background: 222 24% 6%;
+    --foreground: 213 31% 93%;
+    --card: 222 21% 9%;
+    --card-foreground: 213 31% 93%;
+    --popover: 222 20% 11%;
+    --popover-foreground: 213 31% 93%;
 
     /* Primary — lighter blue */
     --primary: 213 94% 68%;
-    --primary-foreground: 224 71% 4%;
+    --primary-foreground: 222 47% 7%;
 
-    /* Secondary / muted */
-    --secondary: 224 47% 13%;
-    --secondary-foreground: 213 31% 91%;
-    --muted: 224 47% 13%;
-    --muted-foreground: 215 20% 58%;
-    --accent: 224 47% 16%;
-    --accent-foreground: 213 31% 91%;
+    /* Secondary / muted — raised surfaces */
+    --secondary: 222 17% 15%;
+    --secondary-foreground: 213 31% 93%;
+    --muted: 222 17% 15%;
+    --muted-foreground: 218 13% 65%;
+    --accent: 222 16% 19%;
+    --accent-foreground: 213 31% 93%;
 
     /* Status */
-    --destructive: 0 63% 31%;
+    --destructive: 0 63% 40%;
     --destructive-foreground: 0 0% 98%;
 
-    /* Form / borders */
-    --border: 224 47% 17%;
-    --input: 224 47% 13%;
+    /* Form / borders — subtle separation, not harsh lines */
+    --border: 222 16% 18%;
+    --input: 222 17% 16%;
     --ring: 213 94% 68%;
+
+    /* Elevation — deeper in dark; shadows do the lifting near-black surfaces
+       can't. Paired with the surface ramp above for clear layer separation. */
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.4);
+    --shadow-md: 0 2px 4px -2px hsl(0 0% 0% / 0.45), 0 6px 16px -4px hsl(0 0% 0% / 0.5);
+    --shadow-lg: 0 4px 10px -3px hsl(0 0% 0% / 0.5), 0 16px 36px -10px hsl(0 0% 0% / 0.6);
+    --shadow-xl: 0 8px 20px -6px hsl(0 0% 0% / 0.55), 0 32px 64px -18px hsl(0 0% 0% / 0.7);
   }
 }
 
@@ -272,10 +289,11 @@
 .df-popup .leaflet-popup-content-wrapper {
   padding: 0;
   border-radius: 1rem;
+  /* Token-driven elevation + a 1px border ring that stays visible in dark mode
+     (the old pure-black ring vanished on the dark surface). */
   box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 10px 24px -4px rgba(0, 0, 0, 0.16),
-    0 0 0 1px rgba(0, 0, 0, 0.06);
+    var(--shadow-lg),
+    0 0 0 1px hsl(var(--border));
   background: hsl(var(--card));
   color: hsl(var(--card-foreground));
   overflow: hidden;

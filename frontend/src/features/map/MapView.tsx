@@ -161,7 +161,7 @@ const ControlButton = memo(function ControlButton({
       aria-pressed={ariaPressed}
       aria-label={ariaLabel}
       className={cn(
-        "flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium shadow-lg ring-1 ring-border backdrop-blur-sm transition-all active:scale-95",
+        "flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium shadow-elevation-lg ring-1 ring-border backdrop-blur-sm transition-all active:scale-95",
         active
           ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20"
           : "bg-background/95 text-foreground hover:bg-background",
@@ -320,8 +320,8 @@ export function MapView({
             onClick={handleSearchArea}
             className={cn(
               "pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2.5",
-              "bg-background/95 text-sm font-medium shadow-lg ring-1 ring-border backdrop-blur-sm",
-              "min-h-[44px] transition-all hover:bg-background hover:shadow-xl active:scale-95",
+              "bg-background/95 text-sm font-medium shadow-elevation-lg ring-1 ring-border backdrop-blur-sm",
+              "min-h-[44px] transition-all hover:bg-background hover:shadow-elevation-xl active:scale-95",
             )}
           >
             <MapPin className="h-4 w-4 text-primary" />
@@ -358,7 +358,7 @@ export function MapView({
         )}
 
         {isLoading && (
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-background/95 shadow-lg ring-1 ring-border">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-background/95 shadow-elevation-lg ring-1 ring-border">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
           </div>
         )}

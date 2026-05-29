@@ -21,7 +21,7 @@ export function PinLocationHint({ coords, className }: PinLocationHintProps) {
       aria-live="polite"
       className={cn(
         "pointer-events-none flex items-center gap-2 rounded-full px-3.5 py-2",
-        "bg-background/95 text-xs font-medium text-foreground shadow-lg ring-1 ring-border backdrop-blur-sm",
+        "bg-background/95 text-xs font-medium text-foreground shadow-elevation-lg ring-1 ring-border backdrop-blur-sm",
         "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2",
         className,
       )}

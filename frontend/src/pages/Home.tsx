@@ -116,7 +116,7 @@ function BottomSheet({ children, snap, onSnapChange }: BottomSheetProps) {
       ref={containerRef}
       className={cn(
         "absolute inset-x-0 z-30 flex flex-col overflow-hidden rounded-t-3xl",
-        "border-t border-border bg-background shadow-2xl shadow-black/10 dark:shadow-black/40",
+        "border-t border-border bg-background shadow-elevation-xl",
         !dragging && "transition-[height] duration-300 ease-out",
       )}
       style={{ height, bottom: NAV_HEIGHT }}

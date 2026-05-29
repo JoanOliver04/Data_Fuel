@@ -21,7 +21,7 @@ export function MapStyleSelector({ value, onChange, className }: MapStyleSelecto
   return (
     <div
       className={cn(
-        "flex flex-col gap-0.5 rounded-xl bg-background/95 p-1 shadow-lg ring-1 ring-border backdrop-blur-sm",
+        "flex flex-col gap-0.5 rounded-xl bg-background/95 p-1 shadow-elevation-lg ring-1 ring-border backdrop-blur-sm",
         className,
       )}
       role="group"

@@ -233,7 +233,7 @@ export function SearchBar({ isSearching }: SearchBarProps) {
         <ul
           role="listbox"
           aria-label="Sugerencias de ubicación"
-          className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl border border-border bg-card shadow-lg shadow-black/5 dark:shadow-black/30"
+          className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-xl border border-border bg-card shadow-elevation-lg"
         >
           {suggestions.map((s, i) => {
             const parts = s.display_name.split(",");

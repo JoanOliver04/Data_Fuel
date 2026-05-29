@@ -41,11 +41,22 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        // Theme-aware elevation scale (vars defined per-theme in index.css).
+        "elevation-sm": "var(--shadow-sm)",
+        "elevation-md": "var(--shadow-md)",
+        "elevation-lg": "var(--shadow-lg)",
+        "elevation-xl": "var(--shadow-xl)",
       },
     },
   },
