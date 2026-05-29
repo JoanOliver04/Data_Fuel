@@ -240,7 +240,11 @@ export function MapView({
   return (
     <div
       className={cn(
-        "relative h-full w-full",
+        // `isolate` (isolation: isolate) creates a stacking context so Leaflet's
+        // internal z-indexes (panes ≤700, controls 800, .leaflet-top/.leaflet-bottom
+        // 1000) stay trapped inside the map and can never escape into the root
+        // context to paint over the fixed bottom nav (z-50) or the sheet (z-30).
+        "relative isolate h-full w-full",
         pin.isActive && "[&_.leaflet-container]:cursor-crosshair",
         className,
       )}
