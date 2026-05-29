@@ -360,9 +360,11 @@ export function StationList({
   const insights = deriveStationInsights(displayed);
 
   return (
-    <div className="flex h-full flex-col">
-      {/* List header */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
+    // Flow content — the parent (desktop sidebar / mobile sheet) owns the single
+    // scroll container, so the list never creates a nested scroll region.
+    <div className="flex flex-col">
+      {/* List header — sticks to the top of the parent scroll container */}
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/95 px-4 py-3 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
         <div>
           <p className="text-sm font-semibold">
             {items.length} gasolinera{items.length !== 1 ? "s" : ""}
@@ -391,8 +393,8 @@ export function StationList({
         )}
       </div>
 
-      {/* Scrollable list */}
-      <div className="flex-1 space-y-2.5 overflow-y-auto overscroll-contain p-3 pb-4">
+      {/* Card list — scrolls with the parent container */}
+      <div className="space-y-2.5 p-3 pb-4">
         {displayed.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Ninguna gasolinera favorita en los resultados.

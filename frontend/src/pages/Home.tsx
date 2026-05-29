@@ -131,7 +131,9 @@ function BottomSheet({ children, snap, onSnapChange }: BottomSheetProps) {
         <div className="h-1 w-10 rounded-full bg-muted-foreground/25" />
       </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain">{children}</div>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scroll-smooth">
+        {children}
+      </div>
     </div>
   );
 }
@@ -383,8 +385,8 @@ export function Home() {
 
       {/* ── Content ─────────────────────────────────────────────────────────── */}
       <div className="relative flex flex-1 overflow-hidden">
-        {/* Desktop sidebar */}
-        <aside className="hidden w-[380px] shrink-0 flex-col overflow-hidden border-r border-border bg-background lg:flex">
+        {/* Desktop sidebar — independent, single vertical scroll container */}
+        <aside className="hidden w-[380px] shrink-0 flex-col overflow-y-auto overflow-x-hidden scroll-smooth border-r border-border bg-background lg:flex">
           {userLat !== null && userLon !== null ? (
             <>
               <div className="shrink-0 px-4 pt-4">
