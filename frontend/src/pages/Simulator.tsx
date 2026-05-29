@@ -173,7 +173,7 @@ export function Simulator() {
   const savings = best && worst ? worst.simCost - best.simCost : 0;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background pb-20 lg:pb-0">
+    <div className="flex min-h-dvh flex-col bg-background pb-20 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 lg:pb-0">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex max-w-screen-xl items-center gap-3 px-4 py-3">

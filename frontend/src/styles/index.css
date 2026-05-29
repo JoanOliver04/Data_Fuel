@@ -124,6 +124,25 @@
   }
 }
 
+/* Fluid theme switch — the `.theme-transition` class is added to <html> for
+   ~320ms only while toggling light/dark, so every surface glides between
+   palettes instead of hard-flipping. Scoped to colour properties to stay cheap;
+   removed immediately after so it never affects hover/scroll interactions. */
+@media (prefers-reduced-motion: no-preference) {
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease,
+      fill 0.3s ease,
+      stroke 0.3s ease,
+      box-shadow 0.3s ease !important;
+  }
+}
+
 /* Honour the OS "reduce motion" setting: neutralise animations and transitions
    for users who opt out. The `motion-safe:` variants already gate entrance
    animations; this is the safety net for transitions and smooth scrolling. */

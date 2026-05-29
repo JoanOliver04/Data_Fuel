@@ -85,7 +85,7 @@ export function Settings() {
     createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
-    <div className="min-h-dvh bg-background pb-20 lg:pb-0">
+    <div className="min-h-dvh bg-background pb-20 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 lg:pb-0">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
