@@ -3,18 +3,16 @@ import { memo } from "react";
 import { Marker, Popup } from "react-leaflet";
 
 import type { RecommendationItem } from "@/features/recommendations/types";
-import { formatDrivingSummary } from "@/features/recommendations/utils";
+
+import { StationPopup } from "./StationPopup";
 
 // ── Icon factory ─────────────────────────────────────────────────────────────
 
 // Rank 1 = cheapest → green, rank 2 = middle → orange, rank 3 = expensive → red.
-// These map to the same hues used in the price heatmap (priceColor.ts), giving
-// the map a single coherent colour language.
 const RANK_BASE_COLORS = ["#22c55e", "#f97316", "#ef4444"];
 
 type MarkerState = "normal" | "selected" | "hovered";
 
-// Module-level cache: avoid creating identical DivIcon objects on every render.
 const iconCache = new Map<string, DivIcon>();
 
 export function makeMarkerIcon(rank: number, state: MarkerState): DivIcon {
@@ -52,6 +50,7 @@ interface StationMarkerProps {
   rank: number;
   isSelected: boolean;
   isHovered: boolean;
+  savings?: number;
   onSelect: (id: number) => void;
 }
 
@@ -60,6 +59,7 @@ export const StationMarker = memo(function StationMarker({
   rank,
   isSelected,
   isHovered,
+  savings,
   onSelect,
 }: StationMarkerProps) {
   const state: MarkerState = isSelected ? "selected" : isHovered ? "hovered" : "normal";
@@ -72,30 +72,20 @@ export const StationMarker = memo(function StationMarker({
       eventHandlers={{ click: () => onSelect(item.station_id) }}
       zIndexOffset={isSelected ? 1000 : isHovered ? 500 : 0}
     >
-      <Popup minWidth={200} className="df-popup">
-        <div className="space-y-1 p-1 text-sm">
-          <div className="flex items-center gap-2">
-            <span
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-              style={{ background: RANK_BASE_COLORS[rank - 1] ?? "#3b82f6" }}
-            >
-              {rank}
-            </span>
-            <p className="font-semibold leading-tight">{item.brand}</p>
-          </div>
-          <p className="text-xs text-gray-500">
-            {item.locality}, {item.province}
-          </p>
-          <p className="text-xs text-gray-400">{item.address}</p>
-          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 border-t pt-2 text-xs">
-            <span className="text-gray-500">Precio:</span>
-            <span className="font-medium">{item.price_per_liter.toFixed(3)} €/L</span>
-            <span className="text-gray-500">Distancia:</span>
-            <span className="font-medium">{formatDrivingSummary(item)}</span>
-            <span className="text-gray-500">Coste real:</span>
-            <span className="font-bold text-orange-600">{item.total_cost.toFixed(2)} €</span>
-          </div>
-        </div>
+      <Popup
+        className="df-popup"
+        minWidth={272}
+        maxWidth={272}
+        autoPan
+        autoPanPaddingTopLeft={[8, 8]}
+        autoPanPaddingBottomRight={[8, 72]}
+      >
+        <StationPopup
+          item={item}
+          rank={rank}
+          savings={savings}
+          onViewDetails={() => onSelect(item.station_id)}
+        />
       </Popup>
     </Marker>
   );

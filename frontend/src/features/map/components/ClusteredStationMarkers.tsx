@@ -34,6 +34,12 @@ export function ClusteredStationMarkers({
   hoveredId,
   onSelect,
 }: ClusteredStationMarkersProps) {
+  // Compute max total_cost once so each marker can show how much it saves.
+  const maxCost = items.reduce(
+    (max, item) => (item.total_cost > max ? item.total_cost : max),
+    0,
+  );
+
   return (
     <MarkerClusterGroup
       iconCreateFunction={makeClusterIcon}
@@ -51,6 +57,7 @@ export function ClusteredStationMarkers({
           rank={i + 1}
           isSelected={selectedId === item.station_id}
           isHovered={hoveredId === item.station_id}
+          savings={items.length > 1 ? maxCost - item.total_cost : undefined}
           onSelect={onSelect}
         />
       ))}
