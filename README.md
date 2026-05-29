@@ -178,7 +178,7 @@ sequenceDiagram
 | Styling | **Tailwind + shadcn/ui** | Utility-first with accessible Radix primitives |
 | Data fetching | **TanStack Query** | Cache, dedupe, `enabled` flag for lazy charts, retries, stale-while-revalidate |
 | State | **Zustand** (persisted) | Small footprint, selector-based subscriptions, `persist` middleware for favourites/settings |
-| Maps | **Leaflet + react-leaflet** | TomTom raster tiles (fast CDN + opt-in live-traffic overlay), OSM fallback when no tile key is set |
+| Maps | **Leaflet + react-leaflet + react-leaflet-cluster** | Marker clustering (custom green bubbles), a 3-way style selector (Street · Dark · Satellite), TomTom raster tiles (fast CDN + opt-in live-traffic overlay), OSM fallback when no tile key is set |
 | Charts | **Recharts** | SVG, responsive, first-class React API |
 
 ---
@@ -189,7 +189,7 @@ sequenceDiagram
 - **Cost ranking** — haversine distance + the cost formula above, with configurable `K`, max distance, and result limit.
 - **Pluggable distance providers** — a `RoutingProvider` abstraction selects the distance source from `DISTANCE_MODE`: straight-line haversine, OpenRouteService driving distance, or TomTom traffic-aware ETA. The top-N candidates (by haversine cost) go through the chosen Matrix API; any provider failure degrades gracefully to haversine. See [Distance providers](#distance-providers).
 - **Real-time data** — hourly upsert from MITECO keeps station metadata and current prices fresh; every sync also appends a row to `price_history` for ML training and charting.
-- **Interactive map** — Leaflet markers for every ranked station, centred on the user, drawn over TomTom raster tiles with an opt-in **live-traffic** overlay (toggle shown only when `VITE_TOMTOM_TILE_KEY` is set; falls back to OpenStreetMap otherwise).
+- **Interactive map** — Leaflet markers for every ranked station, centred on the user, drawn over TomTom raster tiles. Production-grade polish: **marker clustering** (custom green bubbles that scale by count and spiderfy on zoom), a floating **map-style selector** (Street · Dark · Satellite), a **pulsing user-location** marker, rank colours unified with the price heatmap (green → orange → red), and an opt-in **live-traffic** overlay (toggle shown only when `VITE_TOMTOM_TILE_KEY` is set; falls back to OpenStreetMap otherwise). All controls use 44 px touch targets for one-handed mobile use.
 - **Price history** — per-station chart whose component (~300 KB Recharts) and data are *both* deferred until the user expands a card.
 
 ### AI / ML
@@ -776,7 +776,7 @@ A quick pass of the threat surface for this app:
 | 4 | Real data | MITECO client with Pydantic schemas, `SyncService`, APScheduler |
 | 5 | Core logic | `cost_calculator` with haversine + ranking, `/recommendations` endpoint |
 | 6 | Functional frontend | Search form, Zustand settings store, recommendation cards |
-| 7 | Visualisations | Leaflet map with station markers |
+| 7 | Visualisations | Leaflet map with clustered station markers, style selector & pulsing location |
 | 8 | AI predictions | `PredictionService` (Ridge pipeline), `/predictions` endpoint, UI badge |
 | 9 | Favourites & polish | Client-side favourites, expandable price-history chart (Recharts, lazy-fetched), skeletons |
 | 10 | Performance pass | SQL prefilter, ORS top-N pre-rank, TTL cache + sync invalidation, GZip, Vite manual chunks, lazy routes & lazy chart |

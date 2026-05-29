@@ -1,0 +1,42 @@
+# Data Fuel backend — runtime dependencies.
+#
+# Source of truth is pyproject.toml ([project.dependencies]); this file mirrors
+# it for tooling/environments that expect a requirements.txt (e.g. some PaaS
+# build packs, Docker layer caching, pip-only installs).
+#
+# Preferred install (editable, with extras):  pip install -e ".[dev]"
+# Plain install from this file:                pip install -r requirements.txt
+#
+# Optional XAI extra (SHAP) and dev tooling live in requirements-dev.txt.
+
+# ── Web framework / server ────────────────────────────────────────────────
+fastapi>=0.115
+uvicorn[standard]>=0.32
+python-multipart>=0.0.20
+
+# ── Validation / settings ─────────────────────────────────────────────────
+pydantic>=2.9
+pydantic-settings>=2.6
+
+# ── Database / migrations ─────────────────────────────────────────────────
+sqlalchemy[asyncio]>=2.0.36
+aiosqlite>=0.20
+asyncpg>=0.30
+alembic>=1.14
+
+# ── HTTP client / TLS ─────────────────────────────────────────────────────
+httpx>=0.27
+truststore>=0.10
+
+# ── Scheduling ────────────────────────────────────────────────────────────
+apscheduler>=3.10
+
+# ── ML / data ─────────────────────────────────────────────────────────────
+scikit-learn>=1.5
+pandas>=2.2
+numpy>=2.0
+geopy>=2.4
+
+# ── Rate limiting / observability ─────────────────────────────────────────
+slowapi>=0.1.9
+prometheus-client>=0.21

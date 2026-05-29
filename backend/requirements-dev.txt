@@ -1,0 +1,25 @@
+# Data Fuel backend — development dependencies.
+#
+# Mirrors pyproject.toml [project.optional-dependencies].dev (which also pulls
+# the XAI extra: shap). Installs the runtime set first, then dev tooling.
+#
+#   pip install -r requirements-dev.txt
+
+-r requirements.txt
+
+# ── Explainable AI (optional extra, exercised by the test suite) ───────────
+shap>=0.44
+
+# ── Testing ───────────────────────────────────────────────────────────────
+pytest>=8.3
+pytest-asyncio>=0.24
+pytest-cov>=6.0
+
+# ── Lint / format / types ─────────────────────────────────────────────────
+ruff>=0.8
+black>=24.10
+mypy>=1.13
+types-python-dateutil
+
+# ── Git hooks ─────────────────────────────────────────────────────────────
+pre-commit>=4.0
