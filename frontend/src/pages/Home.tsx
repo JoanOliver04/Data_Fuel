@@ -21,6 +21,7 @@ import type { RecommendationItem, RecommendationParams } from "@/features/recomm
 import { OptimizationProfileSelector } from "@/features/optimization/OptimizationProfileSelector";
 import { OptimizationInsightCard } from "@/features/optimization/OptimizationInsightCard";
 import { ComparisonCenter } from "@/features/comparison";
+import { AlertBell, AlertCenter } from "@/features/alerts";
 import { FuelStrategyCard } from "@/features/fuel-strategy";
 import type { SmartAdviceParams } from "@/features/smart-advice/types";
 import { VehicleProfileBanner } from "@/features/vehicle-profile/VehicleProfileBanner";
@@ -370,6 +371,7 @@ export function Home() {
               <StandaloneBadge />
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
+              <AlertBell />
               <Button
                 variant="ghost"
                 size="icon"
@@ -520,6 +522,7 @@ export function Home() {
       </div>
 
       <ComparisonCenter items={processedData} />
+      <AlertCenter />
 
       <InstallPrompt />
     </div>

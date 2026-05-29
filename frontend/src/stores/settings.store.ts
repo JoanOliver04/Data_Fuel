@@ -12,6 +12,17 @@ const DEFAULT_LITERS = 40;
 
 export type Theme = "light" | "dark";
 
+/**
+ * Stable per-device identifier for the (auth-less) alert API, which scopes every
+ * alert/notification by `user_identifier`. Generated once and persisted, so a
+ * user's alerts survive reloads and stay private to this device.
+ */
+function createUserId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 interface SettingsState {
   kmCost: number;
   liters: number;
@@ -22,6 +33,7 @@ interface SettingsState {
   theme: Theme;
   activeVehicleProfileId: number | null;
   optimizationProfile: OptimizationProfile;
+  alertsUserId: string;
   setKmCost: (value: number) => void;
   setLiters: (value: number) => void;
   setPreferredFuel: (value: FuelType) => void;
@@ -44,6 +56,7 @@ export const useSettingsStore = create<SettingsState>()(
       theme: (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") satisfies Theme,
       activeVehicleProfileId: null,
       optimizationProfile: DEFAULT_OPTIMIZATION_PROFILE,
+      alertsUserId: createUserId(),
       setKmCost: (value) => set({ kmCost: value }),
       setLiters: (value) => set({ liters: value }),
       setPreferredFuel: (value) => set({ preferredFuel: value }),
