@@ -38,7 +38,7 @@ def test_fastest_weights_time_heaviest() -> None:
 
 
 def test_invalid_weights_rejected() -> None:
-    with pytest.raises(ValueError, match="sum to 1.0"):
+    with pytest.raises(ValueError, match=r"sum to 1\.0"):
         ProfileWeights(fuel=0.5, distance=0.5, time=0.5, traffic=0.5)
 
 

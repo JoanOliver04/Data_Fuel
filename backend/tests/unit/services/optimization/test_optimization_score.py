@@ -16,7 +16,6 @@ from app.services.optimization.optimization_score import (
     traffic_penalty,
 )
 
-
 # ── time_cost ──────────────────────────────────────────────────────────────
 
 
