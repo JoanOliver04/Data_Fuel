@@ -20,7 +20,7 @@ import { StationList } from "@/features/recommendations/StationList";
 import type { RecommendationItem, RecommendationParams } from "@/features/recommendations/types";
 import { OptimizationProfileSelector } from "@/features/optimization/OptimizationProfileSelector";
 import { OptimizationInsightCard } from "@/features/optimization/OptimizationInsightCard";
-import { SmartAdviceCard } from "@/features/smart-advice/SmartAdviceCard";
+import { FuelStrategyCard } from "@/features/fuel-strategy";
 import type { SmartAdviceParams } from "@/features/smart-advice/types";
 import { VehicleProfileBanner } from "@/features/vehicle-profile/VehicleProfileBanner";
 import { useSettingsStore } from "@/stores/settings.store";
@@ -305,7 +305,7 @@ export function Home() {
     <>
       {smartAdviceParams && (
         <div className="px-4 pt-3">
-          <SmartAdviceCard params={smartAdviceParams} />
+          <FuelStrategyCard params={smartAdviceParams} items={processedData} />
         </div>
       )}
       <div className="px-4 pt-2.5">
@@ -416,7 +416,7 @@ export function Home() {
           {userLat !== null && userLon !== null ? (
             <>
               <div className="shrink-0 px-4 pt-4">
-                <SmartAdviceCard params={smartAdviceParams} />
+                <FuelStrategyCard params={smartAdviceParams} items={processedData} />
               </div>
               <div className="shrink-0 px-4 pt-2">
                 <OptimizationProfileSelector />
