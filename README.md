@@ -10,8 +10,8 @@
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/SQLAlchemy-2.0%20async-D71F00" alt="SQLAlchemy 2.0" />
   <img src="https://img.shields.io/badge/scikit--learn-1.5-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn" />
-  <img src="https://img.shields.io/badge/tests-632%20passing-brightgreen" alt="632 tests passing" />
-  <img src="https://img.shields.io/badge/coverage-85%25-brightgreen" alt="Coverage 85%" />
+  <img src="https://img.shields.io/badge/tests-690%20passing-brightgreen" alt="690 tests passing" />
+  <img src="https://img.shields.io/badge/coverage-86%25-brightgreen" alt="Coverage 86%" />
   <img src="https://img.shields.io/badge/mypy-strict-blue" alt="mypy strict" />
   <img src="https://img.shields.io/badge/license-PolyForm%20NC%201.0-lightgrey" alt="License" />
 </p>
@@ -47,7 +47,7 @@ On top of this, a **scikit-learn Ridge regression** predicts the 48-hour price d
 - **Clean Architecture backend** — strict dependency direction (`domain → services → repositories → infrastructure → API`). No ORM leaks into domain, no HTTP into business logic.
 - **Async end-to-end** — FastAPI + SQLAlchemy 2.0 async + `httpx.AsyncClient`. Sync job runs on APScheduler without blocking the event loop.
 - **Typed end-to-end** — `mypy --strict` on the backend, `tsc --strict` + `exactOptionalPropertyTypes` + `noUncheckedIndexedAccess` on the frontend. Zero `any` leaking into public signatures.
-- **523 backend + 109 frontend tests, 85% coverage** — unit tests for domain logic, integration tests hitting a real in-memory SQLite via ASGI transport, repo-level tests for SQL behaviour. Frontend tests cover components, hooks, and API clients.
+- **569 backend + 121 frontend tests, 86% coverage** — unit tests for domain logic, integration tests hitting a real in-memory SQLite via ASGI transport, repo-level tests for SQL behaviour. Frontend tests cover components, hooks, and API clients.
 - **Real data source** — the official Spanish MITECO carburantes API (not web scraping), refreshed hourly via APScheduler with idempotent upserts.
 - **ML pipeline** — a `Pipeline` with `ColumnTransformer` (numerical scaling + one-hot encoding) + `Ridge` regression, trained on 30 days of price history with 6-hour per-fuel-type caching.
 - **Performance pass** — SQL-side bbox/radius prefilter (skips ~10 k row hydration per call), top-N pre-rank by haversine before the ORS Matrix call (~5× cheaper quota), async-safe TTL cache on `/recommendations` (cache hits return in <1 ms), GZip middleware (~70 % smaller JSON), Vite manual chunks + lazy-loaded routes and Recharts.
@@ -630,12 +630,70 @@ A premium [`features/xai/`](frontend/src/features/xai/) module renders the panel
 
 ---
 
+## Traffic-Aware Optimization Engine
+
+Data Fuel no longer optimizes only **fuel price**. The cheapest pump is often not the best decision: a station 3 €-cents dearer but 15 km closer and free of traffic usually wins once you price the drive and the time it costs. The optimization layer ([`app/services/optimization/`](backend/app/services/optimization/)) turns the cheapest-finder into a route-aware decision engine that simultaneously weighs **money, distance, ETA, traffic and the value of time**. See [ADR 0010](docs/adr/0010-traffic-aware-optimization.md).
+
+<!-- IMAGE: profile selector + insight card + per-station cost breakdown -->
+<p align="center">
+  <img src="docs/images/optimization-engine.png" alt="Traffic-aware optimization UI" width="420" />
+</p>
+
+### The objective
+
+Every candidate is scored on a single, additive, **euro-denominated** objective (a weighted-sum scalarization of a multi-objective problem):
+
+```
+OptimizationScore = w_fuel · FuelCost
+                  + w_distance · TravelCost
+                  + w_time · TimeCost
+                  + w_traffic · TrafficPenalty        (lower is better)
+
+FuelCost       = liters × price            TimeCost       = eta_minutes × (TIME_COST_PER_HOUR / 60)
+TravelCost     = distance_km × km_cost     TrafficPenalty = (traffic_delay_seconds / 60) × TRAFFIC_PENALTY_FACTOR
+```
+
+Because every term is already in €, equal weighting reduces the score to plain total cost — profiles simply express the user's preference. **"Time has value"**: a longer ETA costs productivity and convenience, priced at `TIME_COST_PER_HOUR` (default **15 €/h**). **Traffic** uses TomTom's `traffic_delay_seconds` versus free-flow, priced at `TRAFFIC_PENALTY_FACTOR` (default **0.25 €/min**), so the optimizer steers away from congestion automatically.
+
+### Profiles
+
+| Profile | Fuel | Distance | Time | Traffic | For |
+|---|---|---|---|---|---|
+| **CHEAPEST** | 70 % | 20 % | 10 % | 0 % | classic lowest total cost |
+| **BALANCED** | 40 % | 25 % | 25 % | 10 % | sensible default for a one-off trip |
+| **FASTEST** | 15 % | 15 % | 50 % | 20 % | minimise time + congestion exposure |
+| **COMMUTER** | 20 % | 20 % | 40 % | 20 % | daily driver — time and traffic dominate |
+
+### Endpoints
+
+```http
+GET /api/v1/recommendations?...&optimization_profile=BALANCED
+    → each result gains optimization_score, time_cost, traffic_penalty,
+      eta_minutes, optimization_profile and is re-ranked by the score.
+
+GET /api/v1/analytics/optimization-summary?lat&lon&liters&fuel_type[&profile]
+    → average ETA, average traffic delay, average fuel savings, and the
+      best-profile distribution (which station each profile would pick).
+```
+
+**Backwards compatible by design.** `optimization_profile` is *optional*: omit it and you get the exact legacy cheapest-total-cost ranking with the new fields `null` (existing contract and tests untouched). The non-negotiable backwards-compatibility constraint wins over a "default = BALANCED" at the raw API; instead the **frontend** defaults to BALANCED so users get the richer experience while the bare endpoint stays unchanged. TomTom / ORS / haversine fallbacks and the Random Forest advice are all preserved — the layer is purely additive and reuses the existing `StationCost` pipeline.
+
+### Frontend
+
+[`features/optimization/`](frontend/src/features/optimization/): a 4-way **segmented profile selector** (persisted in the settings store), an **insight card** ("why this pick" — profile rationale + ETA + traffic + savings versus the runner-up, deterministic, no LLM), and a per-station **cost breakdown** (fuel / travel / time / traffic + score) on each result card. The home view feeds the active profile into the recommendation query and honours the backend's ranking.
+
+### Future-ready
+
+The scoring engine takes an optional `weights_override`, leaving seams for **personalized time value**, **company fleets**, **EV charging profiles**, **route / multi-stop optimization** and **dynamic fuel planning** — none implemented, only the hooks exist.
+
+---
+
 ## Testing & quality
 
 ### Backend
 
 ```bash
-pytest                   # 523 tests, 85% coverage (branch), enforced via --cov-fail-under=80
+pytest                   # 569 tests, 86% coverage (branch), enforced via --cov-fail-under=80
 ruff check app tests     # lint + import order (E, F, I, N, UP, B, A, C4, SIM, RUF)
 mypy app                 # strict mode, plugins=[pydantic.mypy]
 ```
@@ -648,7 +706,7 @@ Key choices:
 ### Frontend
 
 ```bash
-npm test        # vitest — 109 tests across 24 files
+npm test        # vitest — 121 tests across 27 files
 npm run lint    # eslint (max-warnings 0)
 npm run typecheck
 npm run build   # tsc -b && vite build
