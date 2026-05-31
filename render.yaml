@@ -1,0 +1,60 @@
+# Render Blueprint — Data Fuel backend (FastAPI).
+#
+# Strategy (free, single-instance defense demo): SQLite, NOT PostgreSQL.
+# The data layer is fully dialect-portable (app/infrastructure/database/dialects.py)
+# so SQLite runs every feature. Background work is OFF so the service never mutates
+# the baked DB and never calls MITECO during the demo.
+#
+# ── WHY A PREBUILT IMAGE (not a build-from-Git) ────────────────────────────────
+# The demo image bakes in data/datafuel.db (~210 MB) + artifacts/modelo_combustible.pkl
+# (69 MB). Both are git-ignored, and the slice is >100 MB (GitHub's hard per-file
+# limit), so they CANNOT be committed — Render therefore cannot build from Git.
+# Instead: build backend/Dockerfile.demo LOCALLY (where the files exist) and push
+# the image to a public registry, then Render just runs it. Full commands are in
+# DEPLOYMENT_STATUS.md → "Remaining manual steps".
+#
+# Replace <YOUR-GH-USERNAME> below with your GitHub (GHCR) namespace.
+
+services:
+  - type: web
+    name: datafuel-backend
+    runtime: image
+    plan: free
+    image:
+      url: ghcr.io/<YOUR-GH-USERNAME>/datafuel-backend-demo:latest
+    healthCheckPath: /api/v1/health
+    autoDeploy: false
+    envVars:
+      # SQLite baked into the image. Absolute path matches the container WORKDIR
+      # /app (the image also sets this as a default; kept here for visibility).
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:////app/data/datafuel.db
+      # REQUIRED: set in the Render dashboard to your exact Netlify origin, e.g.
+      # https://datafuel.netlify.app  (comma-separate to allow several).
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+      # Read-only demo: no startup MITECO pull, no background scheduler/alerts/retrain.
+      - key: SYNC_ON_STARTUP
+        value: "false"
+      - key: SCHEDULER_ENABLED
+        value: "false"
+      - key: ALERTS_ENABLED
+        value: "false"
+      - key: RETRAIN_ENABLED
+        value: "false"
+      # AI prose stays fully offline/deterministic (zero external calls, no key needed).
+      - key: AI_ENABLED
+        value: "true"
+      - key: DATAFUEL_LLM_PROVIDER
+        value: "fallback"
+      # Offline straight-line distance (no routing key required).
+      - key: DISTANCE_MODE
+        value: "EUCLIDEAN"
+
+# ── ALTERNATIVE: Fly.io (no registry step needed) ──────────────────────────────
+# `fly deploy` uploads the LOCAL build context, so it builds Dockerfile.demo with
+# the baked files directly — no Git commit, no registry. See DEPLOYMENT_STATUS.md.

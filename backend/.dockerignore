@@ -10,11 +10,16 @@ __pycache__/
 .coverage.*
 htmlcov/
 
-# Local DB and generated ML artifacts — runtime volumes own these.
+# Local DB and generated ML artifacts — runtime volumes own these in the
+# production Dockerfile. The DEMO image (Dockerfile.demo) instead BAKES IN a
+# small slice + the model, so those two files are re-included below.
+# NOTE: the 2.3 GB root `datafuel.db` stays excluded — never ship it.
 datafuel.db
-data/datafuel.db
 data/datos.csv
 artifacts/*.pkl
+# Re-include the demo slice + trained model for Dockerfile.demo:
+!data/datafuel.db
+!artifacts/modelo_combustible.pkl
 
 # Tests are not shipped in the production image.
 tests/

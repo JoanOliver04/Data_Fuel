@@ -1,0 +1,26 @@
+# Netlify deployment — Data Fuel frontend (Vite + React SPA).
+#
+# Build runs inside the `frontend/` workspace; `command` and `publish` are
+# resolved RELATIVE TO `base`, so publish is "dist" (not "frontend/dist").
+# `npm run build` runs `tsc -b && vite build` and emits to frontend/dist.
+
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # package.json engines requires Node >= 20.
+  NODE_VERSION = "20"
+
+# SPA fallback (mirrors frontend/public/_redirects; harmless to have both).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Long-cache hashed build assets; never cache the HTML shell or the SW.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

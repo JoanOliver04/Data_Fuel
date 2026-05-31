@@ -1,0 +1,85 @@
+# syntax=docker/dockerfile:1.6
+#
+# DEMO image for the Data Fuel backend — self-contained for a free single-instance
+# deployment (Render). Unlike the production Dockerfile (which keeps data/artifacts
+# in runtime volumes), this image BAKES IN:
+#   * data/datafuel.db                  → the 30-day SQLite slice (scripts/make_demo_slice.py)
+#   * artifacts/modelo_combustible.pkl  → the trained Random Forest model
+# and installs the `xai` extra (SHAP) so the /xai endpoints work.
+#
+# Requires backend/.dockerignore to re-include those two files (see the negation
+# rules there). Build context = backend/.
+
+ARG PYTHON_VERSION=3.12
+
+# ─── Stage 1: builder ────────────────────────────────────────────────────────
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /build
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install runtime deps + the xai extra (SHAP) so explainability works in the demo.
+COPY pyproject.toml ./
+COPY app ./app
+RUN pip install --upgrade pip && pip install ".[xai]"
+
+# ─── Stage 2: runtime ────────────────────────────────────────────────────────
+FROM python:${PYTHON_VERSION}-slim AS runtime
+
+LABEL org.opencontainers.image.title="datafuel-backend-demo" \
+      org.opencontainers.image.description="Data Fuel backend demo (baked SQLite slice + model)" \
+      org.opencontainers.image.source="https://github.com/JoanOliver04/Data_Fuel"
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    # Read-only demo defaults (render.yaml also sets these; this is the safety net
+    # so the image is correct even when run without an env file).
+    DATABASE_URL="sqlite+aiosqlite:////app/data/datafuel.db" \
+    SYNC_ON_STARTUP="false" \
+    SCHEDULER_ENABLED="false" \
+    ALERTS_ENABLED="false" \
+    RETRAIN_ENABLED="false" \
+    DATAFUEL_LLM_PROVIDER="fallback" \
+    DISTANCE_MODE="EUCLIDEAN" \
+    DEBUG="false" \
+    LOG_LEVEL="INFO"
+
+WORKDIR /app
+
+COPY --from=builder /opt/venv /opt/venv
+COPY app ./app
+COPY scripts ./scripts
+# Alembic config + migration scripts so the startup `alembic upgrade head` runs
+# cleanly (it's a no-op since the baked slice is already at head, but copying
+# these avoids a noisy ERROR traceback in the logs).
+COPY alembic.ini ./alembic.ini
+COPY migrations ./migrations
+
+# Bake the demo data + trained model directly into the image.
+COPY data/datafuel.db ./data/datafuel.db
+COPY artifacts/modelo_combustible.pkl ./artifacts/modelo_combustible.pkl
+
+# Non-root execution; own the baked data so the app can open the DB.
+RUN useradd --create-home --uid 1000 datafuel \
+    && chown -R datafuel:datafuel /app
+
+USER datafuel
+
+EXPOSE 8000
+
+# Local-run healthcheck on the default port (Render ignores Docker HEALTHCHECK and
+# uses healthCheckPath instead, so a fixed 8000 here is fine).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health',timeout=3).getcode()==200 else 1)" || exit 1
+
+# Render injects $PORT; default to 8000 for local `docker run`. Shell form so
+# ${PORT:-8000} expands. --workers 1 is mandatory (model singleton + scheduler).
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

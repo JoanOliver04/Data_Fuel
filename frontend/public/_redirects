@@ -1,0 +1,6 @@
+# SPA fallback for React Router (BrowserRouter) on Netlify.
+# Every path that isn't a real static file is served index.html with a 200 so
+# client-side routes (/comparison, /alerts, …) resolve on hard refresh / deep link.
+# Safe as a catch-all here: the frontend calls the backend via the absolute
+# VITE_API_BASE_URL (Render), so no /api/* paths are ever served by Netlify.
+/*    /index.html   200
