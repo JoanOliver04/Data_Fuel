@@ -37,6 +37,14 @@ services:
         value: "false"
       - key: LOG_LEVEL
         value: INFO
+      # SHAP/XAI off under the 512 MB Free cap. The image already omits the `xai`
+      # extra (Dockerfile.demo installs core only); this flag makes the intent
+      # explicit and guarantees the costly SHAP warm-up never runs. Predictions,
+      # recommendations, stations, analytics, comparison and traffic are unaffected;
+      # /xai/explain-recommendation degrades to deterministic reasoning. Localhost
+      # keeps the full SHAP stack (XAI_ENABLED defaults true + `.[xai]` installed).
+      - key: XAI_ENABLED
+        value: "false"
       # Read-only demo: no startup MITECO pull, no background scheduler/alerts/retrain.
       - key: SYNC_ON_STARTUP
         value: "false"

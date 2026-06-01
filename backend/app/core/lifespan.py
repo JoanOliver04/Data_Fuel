@@ -74,10 +74,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     load_modelo()
 
     # Pre-build the SHAP TreeExplainer so the first /xai request pays no build
-    # cost. Best-effort and non-fatal: a missing model or missing `shap`
-    # dependency simply leaves the explainer cold (lazy build / graceful 503).
+    # cost. Best-effort and non-fatal: a missing model, a missing `shap`
+    # dependency, or XAI_ENABLED=false simply leaves the explainer cold (lazy
+    # build / graceful fallback). XAI_ENABLED=false is the memory-constrained
+    # deployment path (Render Free): it skips the costly numba/llvmlite warm-up.
     _artifact = get_modelo()
-    if _artifact is not None and shap_explainer.is_available():
+    if settings.xai_enabled and _artifact is not None and shap_explainer.is_available():
         try:
             if shap_explainer.warm(_artifact["model"]):
                 log.info("SHAP explainer warmed at startup")

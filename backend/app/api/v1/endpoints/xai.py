@@ -119,7 +119,15 @@ def _build_explanation(
     except ValueError:
         global_items = []
 
-    explanation: ShapExplanation | None = shap_explainer.explain(model, vector, names)
+    # SHAP is gated by XAI_ENABLED: when off (memory-constrained deployments)
+    # we skip the local explainer entirely and fall through to the deterministic
+    # global-importance + reasoning path below — same graceful branch used when
+    # the `shap` dependency is absent.
+    explanation: ShapExplanation | None = (
+        shap_explainer.explain(model, vector, names)
+        if get_settings().xai_enabled
+        else None
+    )
 
     if explanation is None:
         reasoning = reasoning_engine.generate_fallback(

@@ -177,6 +177,19 @@ class Settings(BaseSettings):
     # it is throttled a touch tighter than plain predictions.
     xai_rate_limit: str = "20/minute"
 
+    # ─── Explainable AI (SHAP) toggle ─────────────────────
+    # Master switch for the SHAP-backed local explanation path (the startup
+    # explainer warm-up and the per-request SHAP call inside
+    # /xai/explain-recommendation). Default True so localhost / the academic
+    # showcase runs the FULL stack. Set XAI_ENABLED=false in memory-constrained
+    # deployments (e.g. Render Free 512 MB): the explain endpoint then degrades
+    # gracefully to global importance + deterministic reasoning, and the costly
+    # numba/llvmlite TreeSHAP warm-up is skipped. Note: the real RAM saving comes
+    # from NOT installing the `xai` extra in that image (shap is imported at
+    # module load); this flag is the explicit intent + a defense-in-depth guard
+    # so the warm-up never runs even if shap happens to be present.
+    xai_enabled: bool = True
+
     # ─── AI assistant (LLM) ───────────────────────────────
     # The conversational layer enriches existing deterministic explanations. It
     # is fully optional: with the default "fallback" provider (or no API key) it

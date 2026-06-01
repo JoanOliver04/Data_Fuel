@@ -5,7 +5,17 @@
 # in runtime volumes), this image BAKES IN:
 #   * data/datafuel.db                  → the 30-day SQLite slice (scripts/make_demo_slice.py)
 #   * artifacts/modelo_combustible.pkl  → the trained Random Forest model
-# and installs the `xai` extra (SHAP) so the /xai endpoints work.
+#
+# MEMORY STRATEGY (Render Free = 512 MB hard cap):
+# This image installs CORE deps only — NOT the `xai` extra. Measured runtime RSS:
+#   * with SHAP (`.[xai]`)  → ~470 MB peak (numba/llvmlite TreeSHAP warm-up) → OOM risk
+#   * core only (`.`)       → ~283 MB peak → comfortable headroom
+# Random Forest predictions, recommendations, stations, analytics, comparison and
+# traffic features ALL work without shap. The /xai endpoints degrade gracefully:
+# global-feature-importance still works (sklearn importances); explain-recommendation
+# returns deterministic reasoning instead of SHAP factors. XAI_ENABLED=false (set
+# below) makes that intent explicit. The full SHAP stack stays available on localhost
+# (dev venv installs `.[xai]`, XAI_ENABLED defaults true) — academic showcase intact.
 #
 # Requires backend/.dockerignore to re-include those two files (see the negation
 # rules there). Build context = backend/.
@@ -24,10 +34,11 @@ WORKDIR /build
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install runtime deps + the xai extra (SHAP) so explainability works in the demo.
+# Install CORE runtime deps ONLY (no `.[xai]`): shap/numba/llvmlite are omitted so
+# the image stays inside Render Free's 512 MB cap. See MEMORY STRATEGY header.
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install --upgrade pip && pip install ".[xai]"
+RUN pip install --upgrade pip && pip install "."
 
 # ─── Stage 2: runtime ────────────────────────────────────────────────────────
 FROM python:${PYTHON_VERSION}-slim AS runtime
@@ -47,6 +58,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
     SCHEDULER_ENABLED="false" \
     ALERTS_ENABLED="false" \
     RETRAIN_ENABLED="false" \
+    # SHAP path off: this image ships without the xai extra (512 MB cap). The
+    # explain endpoint degrades to deterministic reasoning; global importance works.
+    XAI_ENABLED="false" \
     DATAFUEL_LLM_PROVIDER="fallback" \
     DISTANCE_MODE="EUCLIDEAN" \
     DEBUG="false" \
