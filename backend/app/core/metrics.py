@@ -29,7 +29,6 @@ from prometheus_client import (
     generate_latest,
 )
 from starlette.requests import Request
-from starlette.routing import Match
 
 # Dedicated registry — see module docstring.
 REGISTRY = CollectorRegistry()
@@ -339,27 +338,14 @@ def route_template(request: Request) -> str:
     ``request.scope["route"].path`` after that yields ``"/api/v1/{id}"`` rather
     than ``"/api/v1/42"``, which keeps timeseries cardinality bounded.
 
-    Whether the resolved route is propagated onto the scope seen by an *outer*
-    ``BaseHTTPMiddleware`` varies across Starlette versions. When it is missing
-    we re-match the request against the app's routes to recover the template,
-    so metrics stay correctly labelled regardless of the installed version.
+    Note: whether the resolved route is propagated onto the scope seen by this
+    *outer* ``BaseHTTPMiddleware`` is Starlette-version-dependent; ``starlette``
+    is pinned in ``pyproject.toml`` to a version that does so.
     """
     route = request.scope.get("route")
     path = getattr(route, "path", None)
     if isinstance(path, str):
         return path
-
-    app = request.scope.get("app")
-    routes = getattr(getattr(app, "router", None), "routes", None) or ()
-    for candidate in routes:
-        matches = getattr(candidate, "matches", None)
-        if matches is None:
-            continue
-        match, _ = matches(request.scope)
-        if match is Match.FULL:
-            template = getattr(candidate, "path", None)
-            if isinstance(template, str):
-                return template
     return "unmatched"
 
 

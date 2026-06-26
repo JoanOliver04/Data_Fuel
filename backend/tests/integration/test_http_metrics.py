@@ -1,25 +1,8 @@
 """Integration tests for HTTP request metrics recorded by the middleware."""
 
 from httpx import AsyncClient
-from starlette.requests import Request
 
-from app.core.metrics import REGISTRY, route_template
-from app.main import create_app
-
-
-def test_route_template_recovers_when_scope_route_absent() -> None:
-    # Some Starlette versions don't propagate the resolved route onto the scope
-    # seen by an outer BaseHTTPMiddleware; route_template must re-match instead
-    # of falling back to "unmatched" and mislabelling the metric.
-    app = create_app()
-    scope = {
-        "type": "http",
-        "method": "GET",
-        "path": "/api/v1/health",
-        "headers": [],
-        "app": app,
-    }
-    assert route_template(Request(scope)) == "/api/v1/health"
+from app.core.metrics import REGISTRY
 
 
 async def test_request_counter_and_histogram_increment(api_client: AsyncClient) -> None:
