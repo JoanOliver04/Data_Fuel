@@ -19,6 +19,8 @@ names. Never put user input, ids, or anything secret in a label.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
     CollectorRegistry,
@@ -29,6 +31,7 @@ from prometheus_client import (
     generate_latest,
 )
 from starlette.requests import Request
+from starlette.routing import Match
 
 # Dedicated registry — see module docstring.
 REGISTRY = CollectorRegistry()
@@ -331,6 +334,34 @@ db_slow_queries_total = Counter(
 )
 
 
+def _match_route_path(scope: Mapping[str, object], routes: object) -> str | None:
+    """Recursively resolve the matched route template for ``scope``.
+
+    Mirrors Starlette's own resolution: a ``Match.FULL`` against a mountable
+    route (one that carries sub-``routes``) contributes its prefix and we
+    descend into the child scope for the remainder; a leaf route contributes
+    its full ``path`` template. Returns ``None`` when nothing matches.
+    """
+    if not isinstance(routes, (list, tuple)):
+        return None
+    for route in routes:
+        matches = getattr(route, "matches", None)
+        if matches is None:
+            continue
+        match, child_scope = matches(scope)
+        if match is not Match.FULL:
+            continue
+        prefix = getattr(route, "path", None)
+        if not isinstance(prefix, str):
+            return None
+        sub_routes = getattr(route, "routes", None)
+        if sub_routes:
+            inner = _match_route_path({**scope, **child_scope}, sub_routes)
+            return prefix + inner if inner is not None else None
+        return prefix
+    return None
+
+
 def route_template(request: Request) -> str:
     """Return the matched route template (low cardinality) or ``"unmatched"``.
 
@@ -338,14 +369,22 @@ def route_template(request: Request) -> str:
     ``request.scope["route"].path`` after that yields ``"/api/v1/{id}"`` rather
     than ``"/api/v1/42"``, which keeps timeseries cardinality bounded.
 
-    Note: whether the resolved route is propagated onto the scope seen by this
-    *outer* ``BaseHTTPMiddleware`` is Starlette-version-dependent; ``starlette``
-    is pinned in ``pyproject.toml`` to a version that does so.
+    Whether the resolved route is propagated onto the scope seen by this
+    *outer* ``BaseHTTPMiddleware`` varies across Starlette versions, OS event
+    loops and middleware nesting. When it is missing we re-match the request
+    against the app's routes (pure, deterministic) to recover the template so
+    HTTP metrics stay correctly labelled everywhere.
     """
     route = request.scope.get("route")
     path = getattr(route, "path", None)
     if isinstance(path, str):
         return path
+
+    app = request.scope.get("app")
+    routes = getattr(getattr(app, "router", None), "routes", None)
+    matched = _match_route_path(request.scope, routes)
+    if matched is not None:
+        return matched
     return "unmatched"
 
 
