@@ -19,10 +19,13 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastapi>=0.115",
-    # Pinned: BaseHTTPMiddleware route-scope propagation (used by the metrics
-    # middleware's route_template) changed across Starlette releases. Floating
-    # the transitive pin let CI resolve a version that mislabelled HTTP metrics.
+    # Capped <0.137: FastAPI 0.137 reworked include_router routing
+    # (_IncludedRouter), so request.scope["route"].path becomes the
+    # router-local segment ("/health") instead of the full template
+    # ("/api/v1/health"). The metrics middleware's route_template relies on the
+    # flattened full path for correct, low-cardinality HTTP metric labels.
+    # starlette is pinned to the matching tested version. Revisit together.
+    "fastapi>=0.115,<0.137",
     "starlette==1.0.0",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
