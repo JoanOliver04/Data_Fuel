@@ -122,7 +122,8 @@ def ejecutar_entrenamiento(
     df["comarca_enc"] = le_comarca.fit_transform(df["comarca"])
 
     train_df, test_df, split_date = _time_split(df, TIME_SPLIT_QUANTILE)
-    train_df, test_df = _cap_sample_sizes(train_df, test_df, max_rows, max_test_rows)
+    train_df, test_df = _cap_sample_sizes(
+        train_df, test_df, max_rows, max_test_rows)
 
     logger.info(
         "Time split @ %s — train=%d test=%d",
@@ -205,7 +206,8 @@ def _time_split(df: pd.DataFrame, quantile: float) -> tuple[pd.DataFrame, pd.Dat
         # to a random 80/20 split so the trainer still produces a model.
         from sklearn.model_selection import train_test_split
 
-        train_df, test_df = train_test_split(df_sorted, test_size=0.2, random_state=42)
+        train_df, test_df = train_test_split(
+            df_sorted, test_size=0.2, random_state=42)
     return train_df, test_df, split_date
 
 
@@ -217,11 +219,15 @@ def _cap_sample_sizes(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Subsample each half independently to keep memory bounded."""
     if len(train_df) > max_train:
-        train_df = train_df.sample(n=max_train, random_state=42).reset_index(drop=True)
-        logger.info("Train pool subsampled to %d rows (max_train cap)", len(train_df))
+        train_df = train_df.sample(
+            n=max_train, random_state=42).reset_index(drop=True)
+        logger.info(
+            "Train pool subsampled to %d rows (max_train cap)", len(train_df))
     if len(test_df) > max_test:
-        test_df = test_df.sample(n=max_test, random_state=42).reset_index(drop=True)
-        logger.info("Test pool subsampled to %d rows (max_test cap)", len(test_df))
+        test_df = test_df.sample(
+            n=max_test, random_state=42).reset_index(drop=True)
+        logger.info(
+            "Test pool subsampled to %d rows (max_test cap)", len(test_df))
     return train_df, test_df
 
 
@@ -246,10 +252,12 @@ def _load_and_validate(path: Path, min_rows: int) -> pd.DataFrame:
     actual_cols = list(df.columns)
 
     if actual_cols != _COLUMNS_EXPECTED:
-        raise ValueError(f"Invalid columns {actual_cols}. Expected {_COLUMNS_EXPECTED}.")
+        raise ValueError(
+            f"Invalid columns {actual_cols}. Expected {_COLUMNS_EXPECTED}.")
 
     if len(df) < min_rows:
-        raise ValueError(f"CSV has {len(df)} rows; minimum required is {min_rows}.")
+        raise ValueError(
+            f"CSV has {len(df)} rows; minimum required is {min_rows}.")
 
     df["es_festivo"] = df["es_festivo"].astype(int)
     df["is_low_cost"] = df["is_low_cost"].astype(int)

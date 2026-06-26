@@ -16,9 +16,8 @@
   <img src="https://img.shields.io/badge/license-PolyForm%20NC%201.0-lightgrey" alt="License" />
 </p>
 
-<!-- IMAGE: hero screenshot — main app view (search form + results) — place a wide screenshot here -->
 <p align="center">
-  <img src="docs/images/hero.png" alt="Data Fuel — main view" width="800" />
+  <img src="docs/images/pantalla_prinicpal.png" alt="Data Fuel — main view: AI strategy card, ranked stations and interactive map" width="100%" />
 </p>
 
 ---
@@ -57,30 +56,98 @@ On top of this, a **scikit-learn Ridge regression** predicts the 48-hour price d
 
 ## Screenshots
 
-<!-- IMAGE: search form — input card with location picker, fuel selector, liters, km cost -->
 <table>
   <tr>
-    <td align="center"><strong>Search form</strong><br/>
-      <img src="docs/images/search-form.png" alt="Search form" width="380" />
+    <td width="50%" align="center"><strong>Advanced filters & search</strong><br/>
+      <img src="docs/images/filtro.png" alt="Advanced filters: brands, litres, cost per km" width="100%" />
     </td>
-    <td align="center"><strong>Results + map</strong><br/>
-      <img src="docs/images/results-map.png" alt="Ranked results and Leaflet map" width="380" />
+    <td width="50%" align="center"><strong>Results + heatmap & live traffic</strong><br/>
+      <img src="docs/images/heatmap-y-trafico-activado.png" alt="Ranked results over a Leaflet map with price heatmap and live traffic" width="100%" />
     </td>
   </tr>
   <tr>
-    <td align="center"><strong>Price history (expanded card)</strong><br/>
-      <img src="docs/images/price-history.png" alt="Recharts price history chart" width="380" />
+    <td width="50%" align="center"><strong>Best option + price history</strong><br/>
+      <img src="docs/images/gasolina-mejor-opcion-conhistorialdatos.png" alt="Best station card with cost breakdown and Recharts price history" width="100%" />
     </td>
-    <td align="center"><strong>Prediction badge</strong><br/>
-      <img src="docs/images/prediction.png" alt="Prediction badge with AI advice" width="380" />
+    <td width="50%" align="center"><strong>AI prediction + SHAP</strong><br/>
+      <img src="docs/images/recomendacionIA-con-shap.png" alt="Random Forest prediction badge with SHAP explanation" width="100%" />
     </td>
   </tr>
 </table>
 
-<!-- IMAGE: favorites filter — shows the heart toggle + filter pill -->
-<p align="center">
-  <img src="docs/images/favorites.png" alt="Favorites filter" width="600" />
-</p>
+<details>
+<summary><b>🗺️ Map — heatmap, traffic, station popup, dark & satellite</b></summary>
+<br/>
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/heatmap-y-trafico-activado.png" alt="Heatmap + traffic" width="100%" /><br/><sub>Price heatmap + live traffic</sub></td>
+    <td align="center"><img src="docs/images/modo-oscuro.png" alt="Dark / satellite mode" width="100%" /><br/><sub>Satellite + dark theme</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/popup-gasolinera-enmapa.png" alt="Station popup" width="100%" /><br/><sub>Station popup on map</sub></td>
+    <td align="center"><img src="docs/images/pantalla_prinicpal.png" alt="Main view" width="100%" /><br/><sub>Main view — strategy + map</sub></td>
+  </tr>
+</table>
+</details>
+
+<details>
+<summary><b>💸 Cost simulator & filters</b></summary>
+<br/>
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/simulador-costes.png" alt="Cost simulator" width="100%" /><br/><sub>Cost simulator — Top-10 real cost + formula</sub></td>
+    <td align="center"><img src="docs/images/filtro.png" alt="Advanced filters" width="100%" /><br/><sub>Advanced filters</sub></td>
+  </tr>
+</table>
+</details>
+
+<details>
+<summary><b>🤖 AI prediction & Explainable AI (SHAP)</b></summary>
+<br/>
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/recomendacionIA-con-shap.png" alt="Prediction + SHAP" width="100%" /><br/><sub>Prediction badge + SHAP reasoning</sub></td>
+    <td align="center"><img src="docs/images/importancia-global-del-modelo.png" alt="Global feature importance" width="100%" /><br/><sub>Global feature importance</sub></td>
+    <td align="center"><img src="docs/images/gasolina-mejor-opcion-conhistorialdatos.png" alt="Best option + history" width="100%" /><br/><sub>Best option + price history</sub></td>
+  </tr>
+</table>
+</details>
+
+<details>
+<summary><b>🔔 Smart price alerts</b></summary>
+<br/>
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/mis-alertas.png" alt="My alerts" width="100%" /><br/><sub>My alerts</sub></td>
+    <td align="center"><img src="docs/images/nueva-alerta.png" alt="New alert" width="100%" /><br/><sub>New alert</sub></td>
+    <td align="center"><img src="docs/images/oportunidades-alertas.png" alt="Opportunities" width="100%" /><br/><sub>AI opportunities</sub></td>
+  </tr>
+</table>
+</details>
+
+<details>
+<summary><b>⚙️ Settings & vehicle profiles</b></summary>
+<br/>
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/perfil.png" alt="Vehicle profiles" width="100%" /><br/><sub>Vehicle profiles (Real cost per km)</sub></td>
+    <td align="center"><img src="docs/images/nuevo-perfil.png" alt="New vehicle profile" width="100%" /><br/><sub>New vehicle profile</sub></td>
+  </tr>
+</table>
+</details>
+
+<details>
+<summary><b>📱 Mobile — responsive, touch-first</b></summary>
+<br/>
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/mapa-en-movil.png" alt="Map on mobile" width="100%" /><br/><sub>Map</sub></td>
+    <td align="center"><img src="docs/images/lista-en-movil.png" alt="List on mobile" width="100%" /><br/><sub>Results list</sub></td>
+    <td align="center"><img src="docs/images/simular-en-movil.png" alt="Simulator on mobile" width="100%" /><br/><sub>Cost simulator</sub></td>
+    <td align="center"><img src="docs/images/ajustes-en-movil.png" alt="Settings on mobile" width="100%" /><br/><sub>Settings</sub></td>
+  </tr>
+</table>
+</details>
 
 ---
 
@@ -583,9 +650,10 @@ The codebase is **prepared for a horizontal-scale migration**: when the persiste
 
 A binary verdict — **REPOSTA AHORA** / **ESPERA** — is only trustworthy if you can see *why*. Data Fuel ships a production-grade explainability layer over the Random Forest recommender that answers exactly that, for non-technical users and for a reviewer auditing the model alike. It is a **read-only observability layer** ([`app/ml/xai/`](backend/app/ml/xai/)): it never retrains, never touches the model or its feature schema, needs no GPU, and degrades gracefully — so it can never destabilise the recommendation pipeline. See [ADR 0009](docs/adr/0009-explainable-ai-layer.md).
 
-<!-- IMAGE: XAI panel — reasoning + SHAP impact list + global importance chart -->
 <p align="center">
-  <img src="docs/images/xai-explainability.png" alt="Explainable AI panel" width="420" />
+  <img src="docs/images/recomendacionIA-con-shap.png" alt="Explainable AI panel — verdict, SHAP impact list and reasoning" width="360" />
+  &nbsp;&nbsp;
+  <img src="docs/images/importancia-global-del-modelo.png" alt="Global feature importance chart" width="360" />
 </p>
 
 ### Why XAI matters (academically and in practice)
@@ -634,9 +702,8 @@ A premium [`features/xai/`](frontend/src/features/xai/) module renders the panel
 
 Data Fuel no longer optimizes only **fuel price**. The cheapest pump is often not the best decision: a station 3 €-cents dearer but 15 km closer and free of traffic usually wins once you price the drive and the time it costs. The optimization layer ([`app/services/optimization/`](backend/app/services/optimization/)) turns the cheapest-finder into a route-aware decision engine that simultaneously weighs **money, distance, ETA, traffic and the value of time**. See [ADR 0010](docs/adr/0010-traffic-aware-optimization.md).
 
-<!-- IMAGE: profile selector + insight card + per-station cost breakdown -->
 <p align="center">
-  <img src="docs/images/optimization-engine.png" alt="Traffic-aware optimization UI" width="420" />
+  <img src="docs/images/simulador-costes.png" alt="Traffic-aware optimization — cost simulator with Top-10 real cost ranking and per-station breakdown" width="100%" />
 </p>
 
 ### The objective
